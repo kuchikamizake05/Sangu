@@ -1,0 +1,19 @@
+# Node
+node_modules/
+.next/
+dist/
+*.log
+.env
+.env.local
+
+# Rust / Soroban
+target/
+**/*.rs.bk
+.soroban/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+.claude
