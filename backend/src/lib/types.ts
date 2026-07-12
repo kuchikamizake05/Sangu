@@ -15,6 +15,7 @@ export type TransferStatus =
 export interface Quote {
   rate: string; // rate referensi pasar (foreign -> IDR), BUKAN kurs remittance final
   amountIdr: string; // estimasi kotor
+  usdcStroops: string; // nilai setara USDC (7 desimal) — internal, dipakai jumlah deposit escrow
   estimate: true;
   rateSource: string;
   rateAsOf: string; // ISO timestamp
@@ -28,6 +29,9 @@ export interface PrepareSendRequest {
   amountForeign: string;
   recipientPhone: string; // E.164
   methodHint?: PayoutMethod;
+  // Alamat passkey smart wallet pengirim (C.../G...). Wajib untuk menyusun XDR deposit nyata;
+  // tanpa ini (atau tanpa ESCROW_ID di env) backend jatuh ke demo-mode.
+  senderAddress?: string;
 }
 
 export interface PrepareSendResponse {
@@ -58,6 +62,7 @@ export interface ClaimInfo {
 export interface PayoutRequest {
   method: PayoutMethod;
   details: Record<string, string>;
+  claimSession: string; // sesi hasil verifikasi OTP — payout ditolak tanpa ini
 }
 
 // Payout: withdrawal SEP-24 nyata, tapi settlement IDR/tunai DISIMULASIKAN di layer anchor (review #5).

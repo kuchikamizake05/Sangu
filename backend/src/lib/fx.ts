@@ -14,12 +14,16 @@ export async function getQuote(corridor: Corridor, amountForeign: number) {
   const res = await fetch(`${FX_API}/${cur}`);
   const data = (await res.json()) as { rates?: Record<string, number> };
   const rate = data.rates?.IDR;
-  if (!rate) throw new Error(`FX rate ${cur}->IDR tidak tersedia`);
+  const usdRate = data.rates?.USD;
+  if (!rate || !usdRate) throw new Error(`FX rate ${cur}->IDR/USD tidak tersedia`);
 
   const amountIdr = amountForeign * rate;
+  // Nilai setara USDC (7 desimal, stroops) — dipakai internal untuk jumlah deposit escrow.
+  const usdcStroops = BigInt(Math.round(amountForeign * usdRate * 1e7)).toString();
   return {
     rate: rate.toFixed(2),
     amountIdr: Math.round(amountIdr).toString(),
+    usdcStroops, // internal (frontend boleh abaikan)
     // semua di bawah = estimasi/demo, wajib ditandai di UI
     estimate: true as const,
     rateSource: FX_API,

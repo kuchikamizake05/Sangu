@@ -1,0 +1,74 @@
+// Scheduler (spec §4 tugas 7):
+// 1) Keeper refund — memindai transfer PENDING yang lewat expiry lalu memanggil
+//    escrow.refund (permissionless; dana HANYA balik ke sender, jadi aman diotomasi).
+// 2) Sangu Bulanan — menandai jadwal yang jatuh tempo. Karena non-custodial, backend
+//    TIDAK bisa auto-debit: trigger = tanda "siap kirim" (frontend/notifikasi meminta
+//    pengirim sign passkey). Dicatat di roadmap.
+import type { FastifyBaseLogger } from "fastify";
+import {
+  listExpiredPending,
+  updateTransfer,
+  listRecurringDue,
+  markRecurringTriggered,
+} from "./db.js";
+import { isOnchainEnabled, refund } from "../stellar/escrow.js";
+
+const KEEPER_INTERVAL_MS = Number(process.env.KEEPER_INTERVAL_MS ?? 30_000);
+const RECURRING_INTERVAL_MS = 60 * 60 * 1000; // cek jam-jaman cukup untuk jadwal harian
+
+let timers: NodeJS.Timeout[] = [];
+let keeperBusy = false;
+
+async function keeperTick(log: FastifyBaseLogger) {
+  if (keeperBusy) return; // jangan tumpuk bila tick sebelumnya masih jalan
+  keeperBusy = true;
+  try {
+    const now = Math.floor(Date.now() / 1000);
+    for (const t of listExpiredPending(now)) {
+      try {
+        if (isOnchainEnabled() && t.escrowId && !t.escrowId.startsWith("SIM-")) {
+          const { txHash } = await refund(t.escrowId);
+          log.info({ transferId: t.transferId, txHash }, "keeper: refund on-chain sukses");
+          updateTransfer(t.transferId, { status: "REFUNDED" });
+        } else {
+          // demo-mode / belum sempat deposit on-chain
+          updateTransfer(t.transferId, { status: t.escrowId ? "REFUNDED" : "EXPIRED" });
+          log.info({ transferId: t.transferId }, "keeper: transfer expired (simulasi)");
+        }
+      } catch (err) {
+        // biarkan tick berikutnya mencoba lagi — jangan hentikan loop karena satu kegagalan
+        log.warn({ err, transferId: t.transferId }, "keeper: refund gagal, akan dicoba lagi");
+      }
+    }
+  } finally {
+    keeperBusy = false;
+  }
+}
+
+function recurringTick(log: FastifyBaseLogger) {
+  const now = Math.floor(Date.now() / 1000);
+  const today = new Date().getDate();
+  for (const r of listRecurringDue(today, now)) {
+    markRecurringTriggered(r.recurringId, now);
+    // Non-custodial: tidak bisa auto-sign — cukup tandai jatuh tempo (frontend menampilkan
+    // "Sangu Bulanan siap dikirim"; kanal notifikasi = roadmap).
+    log.info(
+      { recurringId: r.recurringId, corridor: r.corridor, amountForeign: r.amountForeign },
+      "Sangu Bulanan jatuh tempo — menunggu sign passkey pengirim"
+    );
+  }
+}
+
+export function startScheduler(log: FastifyBaseLogger) {
+  timers.push(setInterval(() => void keeperTick(log), KEEPER_INTERVAL_MS));
+  timers.push(setInterval(() => recurringTick(log), RECURRING_INTERVAL_MS));
+  log.info(
+    { keeperIntervalMs: KEEPER_INTERVAL_MS },
+    "scheduler aktif (keeper refund + Sangu Bulanan)"
+  );
+}
+
+export function stopScheduler() {
+  for (const t of timers) clearInterval(t);
+  timers = [];
+}
