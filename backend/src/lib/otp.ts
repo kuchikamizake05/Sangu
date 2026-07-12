@@ -34,7 +34,7 @@ export async function sendOtp(token: string, phoneE164: string): Promise<{ sent:
   // Mode mock: generate 6 digit, simpan hash-nya, log ke console untuk demo.
   const code = randomInt(0, 1_000_000).toString().padStart(6, "0");
   const codeHash = sha256(code);
-  saveOtp(token, codeHash, Math.floor(Date.now() / 1000) + OTP_TTL_SEC);
+  await saveOtp(token, codeHash, Math.floor(Date.now() / 1000) + OTP_TTL_SEC);
   console.log(`[OTP mock] token=${token} phone=${phoneE164} code=${code}`);
   return { sent: true };
 }

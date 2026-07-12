@@ -1,6 +1,6 @@
-// Persistensi SQLite via modul bawaan Node (node:sqlite) — tanpa dependency npm tambahan.
+// Persistensi Postgres (Supabase) via `pg`. Semua fungsi async.
 // Menyimpan mapping token<->escrow, secret, status transfer, OTP, dan jadwal recurring.
-import { DatabaseSync } from "node:sqlite";
+import pg from "pg";
 import { randomUUID } from "node:crypto";
 
 export type TransferStatus = "PENDING" | "CLAIMED" | "PAID_OUT" | "REFUNDED" | "EXPIRED";
@@ -41,68 +41,96 @@ export interface RecurringRecord {
   lastTriggeredAt: number | null;
 }
 
-const dbUrl = process.env.DATABASE_URL ?? "file:./dev.db";
-const dbPath = dbUrl.startsWith("file:") ? dbUrl.slice("file:".length) : dbUrl;
+const connectionString = process.env.DATABASE_URL;
+if (!connectionString || !connectionString.startsWith("postgres")) {
+  throw new Error("DATABASE_URL (postgres) wajib diset di .env");
+}
 
-// Singleton koneksi DB untuk seluruh proses.
-const db = new DatabaseSync(dbPath);
+// Pool singleton. Supabase pooler (pgbouncer, port 6543) butuh TLS; sertifikatnya
+// tidak selalu tervalidasi chain lokal, jadi rejectUnauthorized: false (testnet/demo).
+const pool = new pg.Pool({
+  connectionString,
+  ssl: { rejectUnauthorized: false },
+  max: 5,
+});
 
-db.exec(`
+// Skema dibuat idempoten saat startup. Kolom camelCase dikutip agar identik
+// dengan nama field TypeScript (tanpa lapisan mapping).
+const SCHEMA_SQL = `
   CREATE TABLE IF NOT EXISTS transfers (
-    transferId TEXT PRIMARY KEY,
-    token TEXT UNIQUE NOT NULL,
-    escrowId TEXT,
-    status TEXT NOT NULL,
-    corridor TEXT NOT NULL,
-    amountForeign TEXT NOT NULL,
-    amountUsdcStroops TEXT NOT NULL,
-    amountIdr TEXT NOT NULL,
-    rate TEXT NOT NULL,
-    secretHex TEXT NOT NULL,
-    hashlockHex TEXT NOT NULL,
-    commitmentHex TEXT NOT NULL,
-    nonceHex TEXT NOT NULL,
-    phoneE164 TEXT NOT NULL,
-    senderAddress TEXT,
-    senderName TEXT NOT NULL,
-    expiry INTEGER NOT NULL,
-    depositTxHash TEXT,
-    claimTxHash TEXT,
-    payoutMethod TEXT,
-    cashCode TEXT,
-    createdAt INTEGER NOT NULL,
-    updatedAt INTEGER NOT NULL
+    "transferId" TEXT PRIMARY KEY,
+    "token" TEXT UNIQUE NOT NULL,
+    "escrowId" TEXT,
+    "status" TEXT NOT NULL,
+    "corridor" TEXT NOT NULL,
+    "amountForeign" TEXT NOT NULL,
+    "amountUsdcStroops" TEXT NOT NULL,
+    "amountIdr" TEXT NOT NULL,
+    "rate" TEXT NOT NULL,
+    "secretHex" TEXT NOT NULL,
+    "hashlockHex" TEXT NOT NULL,
+    "commitmentHex" TEXT NOT NULL,
+    "nonceHex" TEXT NOT NULL,
+    "phoneE164" TEXT NOT NULL,
+    "senderAddress" TEXT,
+    "senderName" TEXT NOT NULL,
+    "expiry" BIGINT NOT NULL,
+    "depositTxHash" TEXT,
+    "claimTxHash" TEXT,
+    "payoutMethod" TEXT,
+    "cashCode" TEXT,
+    "createdAt" BIGINT NOT NULL,
+    "updatedAt" BIGINT NOT NULL
   );
 
   CREATE TABLE IF NOT EXISTS otps (
-    token TEXT PRIMARY KEY,
-    codeHash TEXT NOT NULL,
-    expiresAt INTEGER NOT NULL,
-    attempts INTEGER NOT NULL DEFAULT 0
+    "token" TEXT PRIMARY KEY,
+    "codeHash" TEXT NOT NULL,
+    "expiresAt" BIGINT NOT NULL,
+    "attempts" INTEGER NOT NULL DEFAULT 0
   );
 
   CREATE TABLE IF NOT EXISTS claim_sessions (
-    token TEXT NOT NULL,
-    session TEXT NOT NULL,
-    expiresAt INTEGER NOT NULL,
-    PRIMARY KEY (token, session)
+    "token" TEXT NOT NULL,
+    "session" TEXT NOT NULL,
+    "expiresAt" BIGINT NOT NULL,
+    PRIMARY KEY ("token", "session")
   );
 
   CREATE TABLE IF NOT EXISTS recurring (
-    recurringId TEXT PRIMARY KEY,
-    recipientPhone TEXT NOT NULL,
-    corridor TEXT NOT NULL,
-    amountForeign TEXT NOT NULL,
-    dayOfMonth INTEGER NOT NULL,
-    createdAt INTEGER NOT NULL,
-    lastTriggeredAt INTEGER
+    "recurringId" TEXT PRIMARY KEY,
+    "recipientPhone" TEXT NOT NULL,
+    "corridor" TEXT NOT NULL,
+    "amountForeign" TEXT NOT NULL,
+    "dayOfMonth" INTEGER NOT NULL,
+    "createdAt" BIGINT NOT NULL,
+    "lastTriggeredAt" BIGINT
   );
-`);
+`;
+
+let schemaReady: Promise<void> | null = null;
+
+function ensureSchema(): Promise<void> {
+  if (!schemaReady) {
+    schemaReady = pool.query(SCHEMA_SQL).then(() => undefined);
+  }
+  return schemaReady;
+}
+
+async function query(text: string, values: unknown[] = []): Promise<pg.QueryResult> {
+  await ensureSchema();
+  return pool.query(text, values);
+}
+
+export async function closeDb(): Promise<void> {
+  await pool.end();
+}
 
 function nowSec(): number {
   return Math.floor(Date.now() / 1000);
 }
 
+// BIGINT dikembalikan pg sebagai string — paksa ke number di mapper.
 function rowToTransfer(row: Record<string, unknown>): TransferRecord {
   return {
     transferId: row.transferId as string,
@@ -121,53 +149,55 @@ function rowToTransfer(row: Record<string, unknown>): TransferRecord {
     phoneE164: row.phoneE164 as string,
     senderAddress: row.senderAddress as string | null,
     senderName: row.senderName as string,
-    expiry: row.expiry as number,
+    expiry: Number(row.expiry),
     depositTxHash: row.depositTxHash as string | null,
     claimTxHash: row.claimTxHash as string | null,
     payoutMethod: row.payoutMethod as string | null,
     cashCode: row.cashCode as string | null,
-    createdAt: row.createdAt as number,
-    updatedAt: row.updatedAt as number,
+    createdAt: Number(row.createdAt),
+    updatedAt: Number(row.updatedAt),
   };
 }
 
-export function createTransfer(t: Omit<TransferRecord, "createdAt" | "updatedAt">): void {
+export async function createTransfer(t: Omit<TransferRecord, "createdAt" | "updatedAt">): Promise<void> {
   const ts = nowSec();
-  const stmt = db.prepare(`
+  await query(
+    `
     INSERT INTO transfers (
-      transferId, token, escrowId, status, corridor,
-      amountForeign, amountUsdcStroops, amountIdr, rate,
-      secretHex, hashlockHex, commitmentHex, nonceHex,
-      phoneE164, senderAddress, senderName, expiry,
-      depositTxHash, claimTxHash, payoutMethod, cashCode,
-      createdAt, updatedAt
+      "transferId", "token", "escrowId", "status", "corridor",
+      "amountForeign", "amountUsdcStroops", "amountIdr", "rate",
+      "secretHex", "hashlockHex", "commitmentHex", "nonceHex",
+      "phoneE164", "senderAddress", "senderName", "expiry",
+      "depositTxHash", "claimTxHash", "payoutMethod", "cashCode",
+      "createdAt", "updatedAt"
     ) VALUES (
-      ?, ?, ?, ?, ?,
-      ?, ?, ?, ?,
-      ?, ?, ?, ?,
-      ?, ?, ?, ?,
-      ?, ?, ?, ?,
-      ?, ?
+      $1, $2, $3, $4, $5,
+      $6, $7, $8, $9,
+      $10, $11, $12, $13,
+      $14, $15, $16, $17,
+      $18, $19, $20, $21,
+      $22, $23
     )
-  `);
-  stmt.run(
-    t.transferId, t.token, t.escrowId, t.status, t.corridor,
-    t.amountForeign, t.amountUsdcStroops, t.amountIdr, t.rate,
-    t.secretHex, t.hashlockHex, t.commitmentHex, t.nonceHex,
-    t.phoneE164, t.senderAddress, t.senderName, t.expiry,
-    t.depositTxHash, t.claimTxHash, t.payoutMethod, t.cashCode,
-    ts, ts,
+  `,
+    [
+      t.transferId, t.token, t.escrowId, t.status, t.corridor,
+      t.amountForeign, t.amountUsdcStroops, t.amountIdr, t.rate,
+      t.secretHex, t.hashlockHex, t.commitmentHex, t.nonceHex,
+      t.phoneE164, t.senderAddress, t.senderName, t.expiry,
+      t.depositTxHash, t.claimTxHash, t.payoutMethod, t.cashCode,
+      ts, ts,
+    ],
   );
 }
 
-export function getTransferByToken(token: string): TransferRecord | undefined {
-  const row = db.prepare(`SELECT * FROM transfers WHERE token = ?`).get(token);
-  return row ? rowToTransfer(row as Record<string, unknown>) : undefined;
+export async function getTransferByToken(token: string): Promise<TransferRecord | undefined> {
+  const res = await query(`SELECT * FROM transfers WHERE "token" = $1`, [token]);
+  return res.rows[0] ? rowToTransfer(res.rows[0]) : undefined;
 }
 
-export function getTransferById(transferId: string): TransferRecord | undefined {
-  const row = db.prepare(`SELECT * FROM transfers WHERE transferId = ?`).get(transferId);
-  return row ? rowToTransfer(row as Record<string, unknown>) : undefined;
+export async function getTransferById(transferId: string): Promise<TransferRecord | undefined> {
+  const res = await query(`SELECT * FROM transfers WHERE "transferId" = $1`, [transferId]);
+  return res.rows[0] ? rowToTransfer(res.rows[0]) : undefined;
 }
 
 // Kolom yang boleh diupdate (whitelist, mencegah SQL injection via key patch).
@@ -179,84 +209,96 @@ const TRANSFER_UPDATABLE_COLUMNS = new Set<string>([
   "depositTxHash", "claimTxHash", "payoutMethod", "cashCode",
 ]);
 
-export function updateTransfer(
+export async function updateTransfer(
   transferId: string,
   patch: Partial<Omit<TransferRecord, "transferId" | "createdAt">>,
-): void {
+): Promise<void> {
   const keys = Object.keys(patch).filter((k) => TRANSFER_UPDATABLE_COLUMNS.has(k));
   if (keys.length === 0) return;
 
-  const setClause = keys.map((k) => `${k} = ?`).join(", ");
-  const values = keys.map((k) => (patch as Record<string, unknown>)[k]) as (string | number | null)[];
-  const stmt = db.prepare(`UPDATE transfers SET ${setClause}, updatedAt = ? WHERE transferId = ?`);
-  stmt.run(...values, nowSec(), transferId);
-}
-
-export function listTransfers(): TransferRecord[] {
-  const rows = db.prepare(`SELECT * FROM transfers ORDER BY createdAt DESC`).all();
-  return rows.map((r) => rowToTransfer(r as Record<string, unknown>));
-}
-
-export function listExpiredPending(nowSecArg: number): TransferRecord[] {
-  const rows = db
-    .prepare(`SELECT * FROM transfers WHERE status = 'PENDING' AND expiry <= ?`)
-    .all(nowSecArg);
-  return rows.map((r) => rowToTransfer(r as Record<string, unknown>));
-}
-
-// ── OTP: simpan hash kode, bukan plaintext ──
-export function saveOtp(token: string, codeHash: string, expiresAt: number): void {
-  db.prepare(`DELETE FROM otps WHERE token = ?`).run(token);
-  db.prepare(`INSERT INTO otps (token, codeHash, expiresAt, attempts) VALUES (?, ?, ?, 0)`).run(
-    token, codeHash, expiresAt,
+  const setClause = keys.map((k, i) => `"${k}" = $${i + 1}`).join(", ");
+  const values = keys.map((k) => (patch as Record<string, unknown>)[k]);
+  await query(
+    `UPDATE transfers SET ${setClause}, "updatedAt" = $${keys.length + 1} WHERE "transferId" = $${keys.length + 2}`,
+    [...values, nowSec(), transferId],
   );
 }
 
-export function consumeOtp(token: string, codeHash: string, nowSecArg: number): boolean {
-  const row = db.prepare(`SELECT * FROM otps WHERE token = ?`).get(token) as
-    | { token: string; codeHash: string; expiresAt: number; attempts: number }
+export async function listTransfers(): Promise<TransferRecord[]> {
+  const res = await query(`SELECT * FROM transfers ORDER BY "createdAt" DESC`);
+  return res.rows.map(rowToTransfer);
+}
+
+export async function listExpiredPending(nowSecArg: number): Promise<TransferRecord[]> {
+  const res = await query(
+    `SELECT * FROM transfers WHERE "status" = 'PENDING' AND "expiry" <= $1`,
+    [nowSecArg],
+  );
+  return res.rows.map(rowToTransfer);
+}
+
+// ── OTP: simpan hash kode, bukan plaintext ──
+export async function saveOtp(token: string, codeHash: string, expiresAt: number): Promise<void> {
+  await query(
+    `
+    INSERT INTO otps ("token", "codeHash", "expiresAt", "attempts") VALUES ($1, $2, $3, 0)
+    ON CONFLICT ("token") DO UPDATE SET "codeHash" = $2, "expiresAt" = $3, "attempts" = 0
+  `,
+    [token, codeHash, expiresAt],
+  );
+}
+
+export async function consumeOtp(token: string, codeHash: string, nowSecArg: number): Promise<boolean> {
+  const res = await query(`SELECT * FROM otps WHERE "token" = $1`, [token]);
+  const row = res.rows[0] as
+    | { token: string; codeHash: string; expiresAt: string | number; attempts: number }
     | undefined;
   if (!row) return false;
 
-  if (row.codeHash === codeHash && row.expiresAt > nowSecArg) {
-    db.prepare(`DELETE FROM otps WHERE token = ?`).run(token);
+  if (row.codeHash === codeHash && Number(row.expiresAt) > nowSecArg) {
+    await query(`DELETE FROM otps WHERE "token" = $1`, [token]);
     return true;
   }
 
   const attempts = row.attempts + 1;
   if (attempts >= 5) {
-    db.prepare(`DELETE FROM otps WHERE token = ?`).run(token);
+    await query(`DELETE FROM otps WHERE "token" = $1`, [token]);
   } else {
-    db.prepare(`UPDATE otps SET attempts = ? WHERE token = ?`).run(attempts, token);
+    await query(`UPDATE otps SET "attempts" = $1 WHERE "token" = $2`, [attempts, token]);
   }
   return false;
 }
 
 // ── Sesi claim pasca-OTP ──
-export function createClaimSession(token: string, ttlSec = 900): string {
+export async function createClaimSession(token: string, ttlSec = 900): Promise<string> {
   const session = randomUUID();
   const expiresAt = nowSec() + ttlSec;
-  db.prepare(`INSERT INTO claim_sessions (token, session, expiresAt) VALUES (?, ?, ?)`).run(
-    token, session, expiresAt,
+  await query(
+    `INSERT INTO claim_sessions ("token", "session", "expiresAt") VALUES ($1, $2, $3)`,
+    [token, session, expiresAt],
   );
   return session;
 }
 
-export function validateClaimSession(token: string, session: string): boolean {
-  const row = db
-    .prepare(`SELECT expiresAt FROM claim_sessions WHERE token = ? AND session = ?`)
-    .get(token, session) as { expiresAt: number } | undefined;
+export async function validateClaimSession(token: string, session: string): Promise<boolean> {
+  const res = await query(
+    `SELECT "expiresAt" FROM claim_sessions WHERE "token" = $1 AND "session" = $2`,
+    [token, session],
+  );
+  const row = res.rows[0] as { expiresAt: string | number } | undefined;
   if (!row) return false;
-  return row.expiresAt > nowSec();
+  return Number(row.expiresAt) > nowSec();
 }
 
 // ── Sangu Bulanan (recurring) ──
-export function createRecurring(r: Omit<RecurringRecord, "createdAt" | "lastTriggeredAt">): void {
-  const ts = nowSec();
-  db.prepare(`
-    INSERT INTO recurring (recurringId, recipientPhone, corridor, amountForeign, dayOfMonth, createdAt, lastTriggeredAt)
-    VALUES (?, ?, ?, ?, ?, ?, NULL)
-  `).run(r.recurringId, r.recipientPhone, r.corridor, r.amountForeign, r.dayOfMonth, ts);
+export async function createRecurring(r: Omit<RecurringRecord, "createdAt" | "lastTriggeredAt">): Promise<void> {
+  await query(
+    `
+    INSERT INTO recurring ("recurringId", "recipientPhone", "corridor", "amountForeign", "dayOfMonth", "createdAt", "lastTriggeredAt")
+    VALUES ($1, $2, $3, $4, $5, $6, NULL)
+  `,
+    [r.recurringId, r.recipientPhone, r.corridor, r.amountForeign, r.dayOfMonth, nowSec()],
+  );
 }
 
 function rowToRecurring(row: Record<string, unknown>): RecurringRecord {
@@ -265,29 +307,28 @@ function rowToRecurring(row: Record<string, unknown>): RecurringRecord {
     recipientPhone: row.recipientPhone as string,
     corridor: row.corridor as "MY" | "HK",
     amountForeign: row.amountForeign as string,
-    dayOfMonth: row.dayOfMonth as number,
-    createdAt: row.createdAt as number,
-    lastTriggeredAt: row.lastTriggeredAt as number | null,
+    dayOfMonth: Number(row.dayOfMonth),
+    createdAt: Number(row.createdAt),
+    lastTriggeredAt: row.lastTriggeredAt == null ? null : Number(row.lastTriggeredAt),
   };
 }
 
-export function listRecurring(): RecurringRecord[] {
-  const rows = db.prepare(`SELECT * FROM recurring ORDER BY createdAt DESC`).all();
-  return rows.map((r) => rowToRecurring(r as Record<string, unknown>));
+export async function listRecurring(): Promise<RecurringRecord[]> {
+  const res = await query(`SELECT * FROM recurring ORDER BY "createdAt" DESC`);
+  return res.rows.map(rowToRecurring);
 }
 
 const TWENTY_DAYS_SEC = 20 * 24 * 60 * 60;
 
-export function listRecurringDue(dayOfMonth: number, nowSecArg: number): RecurringRecord[] {
+export async function listRecurringDue(dayOfMonth: number, nowSecArg: number): Promise<RecurringRecord[]> {
   const cutoff = nowSecArg - TWENTY_DAYS_SEC;
-  const rows = db
-    .prepare(
-      `SELECT * FROM recurring WHERE dayOfMonth = ? AND (lastTriggeredAt IS NULL OR lastTriggeredAt < ?)`,
-    )
-    .all(dayOfMonth, cutoff);
-  return rows.map((r) => rowToRecurring(r as Record<string, unknown>));
+  const res = await query(
+    `SELECT * FROM recurring WHERE "dayOfMonth" = $1 AND ("lastTriggeredAt" IS NULL OR "lastTriggeredAt" < $2)`,
+    [dayOfMonth, cutoff],
+  );
+  return res.rows.map(rowToRecurring);
 }
 
-export function markRecurringTriggered(recurringId: string, ts: number): void {
-  db.prepare(`UPDATE recurring SET lastTriggeredAt = ? WHERE recurringId = ?`).run(ts, recurringId);
+export async function markRecurringTriggered(recurringId: string, ts: number): Promise<void> {
+  await query(`UPDATE recurring SET "lastTriggeredAt" = $1 WHERE "recurringId" = $2`, [ts, recurringId]);
 }

@@ -24,15 +24,15 @@ async function keeperTick(log: FastifyBaseLogger) {
   keeperBusy = true;
   try {
     const now = Math.floor(Date.now() / 1000);
-    for (const t of listExpiredPending(now)) {
+    for (const t of await listExpiredPending(now)) {
       try {
         if (isOnchainEnabled() && t.escrowId && !t.escrowId.startsWith("SIM-")) {
           const { txHash } = await refund(t.escrowId);
           log.info({ transferId: t.transferId, txHash }, "keeper: refund on-chain sukses");
-          updateTransfer(t.transferId, { status: "REFUNDED" });
+          await updateTransfer(t.transferId, { status: "REFUNDED" });
         } else {
           // demo-mode / belum sempat deposit on-chain
-          updateTransfer(t.transferId, { status: t.escrowId ? "REFUNDED" : "EXPIRED" });
+          await updateTransfer(t.transferId, { status: t.escrowId ? "REFUNDED" : "EXPIRED" });
           log.info({ transferId: t.transferId }, "keeper: transfer expired (simulasi)");
         }
       } catch (err) {
@@ -45,11 +45,11 @@ async function keeperTick(log: FastifyBaseLogger) {
   }
 }
 
-function recurringTick(log: FastifyBaseLogger) {
+async function recurringTick(log: FastifyBaseLogger) {
   const now = Math.floor(Date.now() / 1000);
   const today = new Date().getDate();
-  for (const r of listRecurringDue(today, now)) {
-    markRecurringTriggered(r.recurringId, now);
+  for (const r of await listRecurringDue(today, now)) {
+    await markRecurringTriggered(r.recurringId, now);
     // Non-custodial: tidak bisa auto-sign — cukup tandai jatuh tempo (frontend menampilkan
     // "Sangu Bulanan siap dikirim"; kanal notifikasi = roadmap).
     log.info(
@@ -61,7 +61,7 @@ function recurringTick(log: FastifyBaseLogger) {
 
 export function startScheduler(log: FastifyBaseLogger) {
   timers.push(setInterval(() => void keeperTick(log), KEEPER_INTERVAL_MS));
-  timers.push(setInterval(() => recurringTick(log), RECURRING_INTERVAL_MS));
+  timers.push(setInterval(() => void recurringTick(log), RECURRING_INTERVAL_MS));
   log.info(
     { keeperIntervalMs: KEEPER_INTERVAL_MS },
     "scheduler aktif (keeper refund + Sangu Bulanan)"

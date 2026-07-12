@@ -91,7 +91,7 @@ export default async function senderRoutes(app: FastifyInstance) {
     }
 
     // secret & phone disimpan DB — TIDAK pernah dikirim ke frontend.
-    createTransfer({
+    await createTransfer({
       transferId,
       token,
       escrowId: null,
@@ -122,7 +122,7 @@ export default async function senderRoutes(app: FastifyInstance) {
   // Langkah 2 — submit XDR yang sudah di-sign passkey wallet (relayer bayar fee).
   app.post("/api/send/submit", async (req, reply): Promise<unknown> => {
     const body = req.body as SubmitSendRequest;
-    const transfer = getTransferById(body.transferId);
+    const transfer = await getTransferById(body.transferId);
     if (!transfer) {
       reply.code(404);
       return { error: { code: "NOT_FOUND", message: "transfer tidak ditemukan" } };
@@ -137,7 +137,7 @@ export default async function senderRoutes(app: FastifyInstance) {
       // demo-mode: escrow on-chain disimulasikan
       escrowId = "SIM-" + crypto.randomBytes(4).toString("hex");
     }
-    updateTransfer(transfer.transferId, { escrowId, depositTxHash });
+    await updateTransfer(transfer.transferId, { escrowId, depositTxHash });
 
     const res: SubmitSendResponse = {
       transferId: transfer.transferId,
@@ -148,7 +148,7 @@ export default async function senderRoutes(app: FastifyInstance) {
   });
 
   app.get("/api/transfers", async () =>
-    listTransfers().map((t) => ({
+    (await listTransfers()).map((t) => ({
       transferId: t.transferId,
       status: t.status,
       amount: t.amountForeign,
@@ -178,7 +178,7 @@ export default async function senderRoutes(app: FastifyInstance) {
       return badRequest(reply, "dayOfMonth harus 1..28");
 
     const recurringId = crypto.randomUUID();
-    createRecurring({
+    await createRecurring({
       recurringId,
       recipientPhone: body.recipientPhone,
       corridor: body.corridor,

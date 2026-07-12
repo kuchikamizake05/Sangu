@@ -4,6 +4,7 @@ import cors from "@fastify/cors";
 import senderRoutes from "./routes/sender.js";
 import claimRoutes from "./routes/claim.js";
 import { startScheduler, stopScheduler } from "./lib/scheduler.js";
+import { closeDb } from "./lib/db.js";
 import { isOnchainEnabled } from "./stellar/escrow.js";
 import { isAnchorEnabled } from "./anchor/sep24.js";
 
@@ -19,7 +20,10 @@ await app.register(senderRoutes);
 await app.register(claimRoutes);
 
 startScheduler(app.log);
-app.addHook("onClose", async () => stopScheduler());
+app.addHook("onClose", async () => {
+  stopScheduler();
+  await closeDb();
+});
 
 const port = Number(process.env.PORT ?? 4000);
 app

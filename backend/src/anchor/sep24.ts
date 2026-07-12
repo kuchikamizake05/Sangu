@@ -154,20 +154,56 @@ export interface WithdrawStart {
   anchorTxId: string;
   interactiveUrl: string;
   simulated: boolean;
+  /** Jumlah yang benar-benar dipakai withdraw (setelah clamp limit anchor). */
+  amountUsdc: string;
 }
 
+// Limit withdraw anchor (dari GET {sep24}/info), dicache per proses.
+let withdrawLimitCache: { min: number; max: number } | null = null;
+
+async function getWithdrawLimits(): Promise<{ min: number; max: number }> {
+  if (withdrawLimitCache) return withdrawLimitCache;
+  const { sep24 } = await resolveEndpoints();
+  try {
+    const res = await fetch(`${sep24}/info`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = (await res.json()) as {
+      withdraw?: Record<string, { min_amount?: number; max_amount?: number }>;
+    };
+    const asset = json.withdraw?.[USDC_ASSET_CODE];
+    withdrawLimitCache = {
+      min: asset?.min_amount ?? 0,
+      max: asset?.max_amount ?? Number.POSITIVE_INFINITY,
+    };
+  } catch {
+    // /info gagal → jangan blokir withdraw, pakai limit longgar
+    withdrawLimitCache = { min: 0, max: Number.POSITIVE_INFINITY };
+  }
+  return withdrawLimitCache;
+}
+
+/**
+ * Jumlah dikirim ke anchor di-clamp ke [min, max] milik anchor. SDF Test Anchor
+ * membatasi USDC max 10 per withdraw — untuk demo, kelebihan tetap di akun settlement
+ * (produksi: pecah beberapa withdrawal / pakai anchor dengan limit riil).
+ */
 export async function startWithdraw(amountUsdc: string): Promise<WithdrawStart> {
   if (!isAnchorEnabled()) {
     return {
       anchorTxId: `SIM-${crypto.randomBytes(8).toString("hex")}`,
       interactiveUrl: "",
       simulated: true,
+      amountUsdc,
     };
   }
 
   const jwt = await getSep10Jwt();
   const { sep24 } = await resolveEndpoints();
   const kp = settlementKeypair()!;
+
+  const { min, max } = await getWithdrawLimits();
+  const clamped = Math.min(Math.max(Number(amountUsdc), min), max);
+  amountUsdc = clamped.toFixed(2);
 
   try {
     const res = await fetch(`${sep24}/transactions/withdraw/interactive`, {
@@ -187,7 +223,7 @@ export async function startWithdraw(amountUsdc: string): Promise<WithdrawStart> 
     if (!json.id || !json.url) {
       throw new Error("response tidak berisi field 'id'/'url'");
     }
-    return { anchorTxId: json.id, interactiveUrl: json.url, simulated: false };
+    return { anchorTxId: json.id, interactiveUrl: json.url, simulated: false, amountUsdc };
   } catch (err) {
     throw new Error(`SEP-24 gagal memulai interactive withdraw: ${(err as Error).message}`);
   }

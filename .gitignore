@@ -5,6 +5,12 @@ dist/
 *.log
 .env
 .env.local
+.env.*.local
+
+# Database lokal (SQLite lama — sekarang pakai Supabase Postgres)
+*.db
+*.db-journal
+*.sqlite
 
 # Rust / Soroban
 target/

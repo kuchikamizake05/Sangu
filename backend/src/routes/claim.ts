@@ -38,7 +38,7 @@ function effectiveStatus(t: TransferRecord): TransferStatus {
 export default async function claimRoutes(app: FastifyInstance) {
   app.get("/api/claim/:token", async (req, reply): Promise<unknown> => {
     const { token } = req.params as { token: string };
-    const t = getTransferByToken(token);
+    const t = await getTransferByToken(token);
     if (!t) return notFound(reply);
     // jangan bocorkan secret/escrowId/nomor HP — hanya info tampilan
     const info: ClaimInfo = {
@@ -52,7 +52,7 @@ export default async function claimRoutes(app: FastifyInstance) {
 
   app.post("/api/claim/:token/otp/request", async (req, reply): Promise<unknown> => {
     const { token } = req.params as { token: string };
-    const t = getTransferByToken(token);
+    const t = await getTransferByToken(token);
     if (!t) return notFound(reply);
     if (effectiveStatus(t) !== "PENDING") {
       reply.code(409);
@@ -65,24 +65,24 @@ export default async function claimRoutes(app: FastifyInstance) {
   app.post("/api/claim/:token/otp/verify", async (req, reply): Promise<unknown> => {
     const { token } = req.params as { token: string };
     const { code } = req.body as { code: string };
-    const t = getTransferByToken(token);
+    const t = await getTransferByToken(token);
     if (!t) return notFound(reply);
     const ok = await verifyOtpCode(token, t.phoneE164, String(code ?? ""));
     if (!ok) {
       reply.code(401);
       return { error: { code: "OTP_INVALID", message: "kode OTP salah atau kedaluwarsa" } };
     }
-    return { ok: true, claimSession: createClaimSession(token) };
+    return { ok: true, claimSession: await createClaimSession(token) };
   });
 
   app.post("/api/claim/:token/payout", async (req, reply): Promise<unknown> => {
     const { token } = req.params as { token: string };
     const body = req.body as PayoutRequest;
-    const t = getTransferByToken(token);
+    const t = await getTransferByToken(token);
     if (!t) return notFound(reply);
 
     // payout hanya boleh dipicu pemegang sesi OTP yang valid
-    if (!body.claimSession || !validateClaimSession(token, body.claimSession)) {
+    if (!body.claimSession || !(await validateClaimSession(token, body.claimSession))) {
       reply.code(401);
       return { error: { code: "SESSION_INVALID", message: "verifikasi OTP dulu" } };
     }
@@ -98,7 +98,7 @@ export default async function claimRoutes(app: FastifyInstance) {
       const secret = Buffer.from(t.secretHex, "hex");
       ({ txHash: claimTxHash } = await escrowClaim(t.escrowId, secret, settlementAddress()));
     }
-    updateTransfer(t.transferId, { status: "CLAIMED", claimTxHash });
+    await updateTransfer(t.transferId, { status: "CLAIMED", claimTxHash });
 
     // 2) jembatan SEP-24: withdraw interaktif + pembayaran Classic ber-memo ke anchor.
     //    Best-effort — kegagalan anchor tidak membatalkan claim (dana sudah di settlement).
@@ -109,9 +109,10 @@ export default async function claimRoutes(app: FastifyInstance) {
       if (!wd.simulated) {
         const info = await getWithdrawInfo(wd.anchorTxId);
         if (info.withdrawAnchorAccount && info.withdrawMemo) {
+          // bayar sesuai jumlah withdraw yang diterima anchor (sudah di-clamp limit)
           await payAnchorWithMemo(
             info.withdrawAnchorAccount,
-            amountUsdc,
+            wd.amountUsdc,
             info.withdrawMemo,
             info.withdrawMemoType
           );
@@ -132,7 +133,7 @@ export default async function claimRoutes(app: FastifyInstance) {
         "-" +
         crypto.randomInt(1000, 9999).toString();
     }
-    updateTransfer(t.transferId, { status: "PAID_OUT", payoutMethod, cashCode });
+    await updateTransfer(t.transferId, { status: "PAID_OUT", payoutMethod, cashCode });
 
     const res: PayoutResponse = {
       status: "PAID_OUT",
