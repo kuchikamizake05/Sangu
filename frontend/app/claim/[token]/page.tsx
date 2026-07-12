@@ -44,6 +44,11 @@ export default function ClaimPage({ params }: { params: Promise<{ token: string 
           ) : (
             <p>{result.instructions}</p>
           )}
+          {result.simulatedPayout && (
+            <p style={{ fontSize: 11, opacity: 0.6, marginTop: 8 }}>
+              Demo: withdrawal SEP-24 nyata; settlement IDR/tunai disimulasikan di layer anchor.
+            </p>
+          )}
         </div>
       )}
     </main>

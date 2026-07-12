@@ -314,7 +314,7 @@
                     },
                     {
                       "key": {
-                        "symbol": "phone_hash"
+                        "symbol": "recipient_commitment"
                       },
                       "val": {
                         "bytes": "0101010101010101010101010101010101010101010101010101010101010101"

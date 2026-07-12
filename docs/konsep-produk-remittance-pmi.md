@@ -201,7 +201,7 @@ ganti logo. Setiap bagian "berat/akalin" berubah jadi **primitive bawaan**:
 > terjadi di **tepi fiat (anchor on/off-ramp)**, bukan lewat Classic Path Payments. Path Payments
 > tetap opsi bila kelak ada aset-fiat on-chain, tapi bukan jalur MVP non-custodial ini.
 
-**Arsitektur (ringkas — detail di bagian 14): semua di Soroban, non-custodial.**
+**Arsitektur (ringkas — detail di bagian 14): all-Soroban; wallet pengirim & escrow non-custodial, off-ramp trusted.**
 - **Passkey smart wallet (Soroban)** = akun pengirim; non-custodial, login biometrik.
 - **Soroban escrow contract** = mesin transfer inti (deposit → claim via link+OTP → refund via
   timelock). Killer flow.
@@ -346,17 +346,28 @@ DANA) di PWA ringan/link ter-personalisasi. Bulan depan: buka link → 1 tap →
 
 ### 13.3 "Wow moment" demo (klimaks panggung)
 Perlihatkan sisi penerima memilih **"Tunai di gerai"** → kode penarikan muncul → narasi:
-*"Ibu yang tak punya rekening bank pun bisa ambil uang tunai — dan ini cuma mungkin di Stellar."*
-Tutup dengan **transaksi asli di Stellar Explorer**.
+*"Ibu yang tak punya rekening bank pun bisa ambil uang tunai — jalur cash-out ini hanya ada di
+Stellar (MoneyGram Ramps)."* Tutup dengan **transaksi escrow asli di Stellar Explorer**.
+
+> **Demo copy wajib jujur (review):** sebut eksplisit — *"withdrawal SEP-24 nyata; settlement
+> IDR/tunai disimulasikan di layer anchor (SDF Test Anchor). MoneyGram = integrasi SEP-24 yang
+> sama, pending allowlist partner."* Jangan mengklaim payout Indonesia sudah live.
 
 ---
 
-## 14. Arsitektur & Tech Stack (MVP) — Non-Custodial, All-Soroban
+## 14. Arsitektur & Tech Stack (MVP) — Wallet Pengirim & Escrow Non-Custodial
 
-> Keputusan: **non-custodial penuh, semua logika di Soroban.** Pengirim memakai passkey smart
-> wallet (kunci di user), escrow adalah Soroban contract yang memberlakukan aturan on-chain.
-> Tak ada key user yang dipegang perusahaan. Trade-off (lebih berat vs Claimable Balances)
-> diterima demi cerita non-custodial + smart-contract + composability.
+> **Batas non-custodial (jujur, jangan over-claim):**
+> - **Non-custodial:** wallet **pengirim** (passkey smart wallet, kunci di user) dan **escrow
+>   on-chain** (dana tunduk aturan contract; backend tak memegang key pengirim & tak bisa
+>   membelokkan dana ke alamat liar).
+> - **Trusted / custodial boundary:** **leg off-ramp**. Backend mengendalikan *kapan* claim
+>   dipicu (pasca-OTP), akun **settlement**, memo, dan konversi fiat lewat anchor. Begitu USDC
+>   masuk anchor/settlement, itu wilayah terpercaya — sebagaimana semua off-ramp fiat.
+>
+> Jadi klaimnya: **"wallet pengirim + escrow non-custodial; off-ramp trusted."** Bukan
+> "non-custodial penuh". Trade-off all-Soroban (lebih berat vs Claimable Balances) diterima demi
+> kedaulatan kunci pengirim + smart-contract + composability.
 
 ### 14.1 Model akun
 
@@ -364,13 +375,12 @@ Tutup dengan **transaksi asli di Stellar Explorer**.
 |---|---|---|
 | **Pengirim (PMI)** | **Passkey smart wallet Soroban** (`C...`, signer secp256r1 = Face ID/sidik jari) | **Non-custodial** — kunci di perangkat user, tak pernah ke server. |
 | **Escrow** | **Soroban escrow contract** memegang USDC (via Stellar Asset Contract) | Trustless — dana tunduk aturan contract, bukan siapa pun. |
-| **Penerima** | **Tak perlu wallet.** Dana mengalir langsung ke anchor off-ramp saat claim. | Nol-friksi; penerima tak pernah meng-custody. |
-| **Relayer** | Akun layanan pembayar fee (fee-bump/Launchtube) | Hanya bayar gas & submit; **tak bisa membelokkan dana**. |
+| **Penerima** | **Tak perlu wallet.** Dana mengalir ke akun settlement → anchor off-ramp saat claim. | Nol-friksi; penerima tak pernah meng-custody. |
+| **Relayer/Backend** | Akun layanan: bayar fee (fee-bump/Launchtube) + submit + picu claim pasca-OTP | Tak bisa mengalihkan dana ke alamat liar (allowlist), **tapi** mengendalikan waktu claim, settlement, memo & leg fiat → **titik trusted**. |
 
-> Kenapa penerima non-custody tak perlu wallet: pada MVP ini penerima **tak menyimpan** dana —
-> begitu di-claim, USDC langsung dikirim ke alamat anchor untuk dicairkan (e-wallet/tunai).
-> Jadi "non-custodial" berlaku penuh di sisi **pengirim** (yang memang butuh kedaulatan kunci),
-> tanpa memaksa ibu di kampung membuat wallet.
+> Kenapa penerima non-custody tak perlu wallet: penerima **tak menyimpan** dana — begitu di-claim,
+> USDC mengalir ke settlement → anchor untuk dicairkan. Kedaulatan kunci berlaku penuh di sisi
+> **pengirim**; sisi off-ramp adalah batas terpercaya (lihat catatan batas non-custodial di atas).
 
 ### 14.2 Komponen sistem
 
@@ -396,19 +406,28 @@ Tutup dengan **transaksi asli di Stellar Explorer**.
 
 ### 14.4 Skema escrow — Soroban contract (jantung killer flow)
 
-Contract menyimpan tiap transfer: `{sender, amount, hashlock, phone_hash, expiry, status}`.
+Contract menyimpan tiap transfer:
+`{sender, amount, hashlock, recipient_commitment, expiry, status}`.
 
-**`deposit(sender, amount, hashlock, phone_hash, expiry)`** — dipanggil dari passkey smart wallet
-pengirim; memindah USDC (SAC) ke contract; simpan `hashlock = hash(secret)` di mana `secret`
-tertanam di link claim. Relayer bayar fee.
+**`deposit(sender, amount, hashlock, recipient_commitment, expiry)`** — memindah USDC (SAC) ke
+contract; butuh `sender.require_auth()`.
+- **Non-custodial (penting):** backend **tidak** membelanjakan dana user. Alurnya **2 langkah** —
+  backend **menyusun XDR unsigned**, **passkey smart wallet** meng-authorize/sign, lalu di-submit
+  (relayer fee-bump). Backend tak pernah pegang key pengirim.
+- **`hashlock = sha256(secret)`** di mana **`secret` disimpan BACKEND, TIDAK PERNAH di URL.** Link
+  claim hanya membawa **token opaque** (lihat §2.2 spesifikasi teknis).
+- **`recipient_commitment`** = komitmen penerima yang **tak dapat direkonstruksi publik** —
+  dihitung server-side (**HMAC** dgn kunci rahasia backend), **bukan** `sha256(nomor HP)` (nomor
+  HP ruang kecil & brute-force-able). Field ini **tidak** dipakai untuk auth on-chain.
 
-**`claim(secret, payout_destination)`** — syarat on-chain:
-- `hash(secret) == hashlock` (pemegang link), **dan**
+**`claim(escrow_id, secret, payout_destination)`** — syarat on-chain:
+- `sha256(secret) == hashlock`, **dan**
 - `now < expiry`, **dan**
-- `payout_destination ∈ allowlist anchor` (disetel saat deploy) → relayer **tak bisa** mengalihkan
-  dana ke alamat liar; hanya ke anchor sah.
-→ contract kirim USDC ke `payout_destination` (alamat SEP-24 anchor untuk metode terpilih).
-Gate manusia = **OTP** (off-chain) sebelum backend menyuplai `secret`.
+- `payout_destination ∈ allowlist anchor` (disetel saat deploy) → **tak bisa** dialihkan ke alamat
+  liar; hanya ke settlement/anchor sah.
+→ contract kirim USDC ke `payout_destination` (akun settlement → jembatan SEP-24 anchor).
+Gate manusia = **OTP** (off-chain) sebelum backend memicu claim dgn `secret`. Backend mengendalikan
+pemicuan ini → bagian dari **batas trusted off-ramp** (lihat catatan §14 atas).
 
 **`refund()`** — syarat: `now >= expiry`. **Permissionless** — siapa pun boleh memanggil, tapi
 dana **hanya** bisa kembali ke `sender`. Jadi refund benar-benar trustless.
@@ -421,28 +440,30 @@ dana **hanya** bisa kembali ke `sender`. Jadi refund benar-benar trustless.
 ### 14.5 Registry/Ledger contract (otak, layer di atas)
 
 Contract kedua, **tak menghalangi** killer flow:
-- **Registry penerima:** `hash(nomor HP)` → preferensi cair. Mendukung "1-tap bulan depan".
+- **Registry penerima:** kunci = **HMAC server-side** (bukan hash nomor mentah) → preferensi cair. Mendukung "1-tap bulan depan".
 - **Ledger riwayat kiriman:** catat tiap transfer (jumlah, waktu, status) → **fondasi pinjaman
   mikro** (data sudah on-chain sejak awal).
 - Dibangun **setelah** escrow stabil. Jika waktu mepet, demo inti tetap utuh tanpa ini.
 
 ### 14.6 Alur teknis happy-path (ringkas)
 ```
-Pengirim (passkey wallet)      Relayer + Soroban Testnet            Penerima (browser)
-  isi jumlah + Face ID ──────▶ escrow.deposit(amount, hashlock,
-                               phone_hash, expiry)  ──▶ Testnet
-  "Terkirim" + link  ◀──────── simpan mapping link(secret)↔escrow
+Pengirim (passkey wallet)      Backend/Relayer + Soroban Testnet     Penerima (browser)
+  isi jumlah ───────────────▶  prepare: susun XDR deposit(hashlock,
+                               recipient_commitment, expiry) unsigned
+  sign (Face ID) ◀──────────── kirim XDR unsigned
+  submit signedXDR ─────────▶  fee-bump + submit deposit ──▶ Testnet
+  "Terkirim" + link(token)  ◀── simpan secret di DB; link = token opaque
       │ share WA ─────────────────────────────────────────────▶  buka link
                                kirim OTP (SMS) ────────────────▶  masukkan OTP
                           ◀──  verifikasi OTP ok
-                               escrow.claim(secret, anchorAddr) ─▶ Testnet
-                               SEP-24 withdraw (e-wallet / tunai)
-                                                              ─▶  "cair" / "kode tunai"
+                               escrow.claim(secret, SETTLEMENT) ─▶ Testnet
+                               SEP-24 withdraw (settlement→anchor, ber-memo)
+                                                              ─▶  "cair"/"kode" (disimulasikan)
   (jika expiry lewat) → keeper panggil escrow.refund() ─▶ Testnet → USDC balik ke pengirim
 ```
 
-Catatan FX: on-chain seluruhnya USDC; konversi ke IDR (dan asal RM/HKD di on-ramp) terjadi di
-**tepi anchor**, bukan on-chain.
+Catatan: on-chain seluruhnya USDC. `secret` tak pernah di link (hanya token opaque). Konversi ke
+IDR & settlement fiat terjadi di **tepi anchor** (trusted), bukan on-chain.
 
 ### 14.7 Yang WAJIB real vs boleh MOCK
 
@@ -451,12 +472,12 @@ Catatan FX: on-chain seluruhnya USDC; konversi ke IDR (dan asal RM/HKD di on-ram
 | Escrow Soroban: `deposit` + `claim` + `refund` | **REAL** | Ditunjukkan di Stellar Explorer / Soroban — bukti inti. |
 | Passkey smart wallet (login biometrik, non-custodial) | **REAL** | passkey-kit / smart wallet SDK. |
 | Gasless via relayer (fee-bump / Launchtube) | **REAL** | Native. |
-| **Cash-out SEP-24** | **REAL** via **SDF Test Anchor** | Alur SEP-24 sungguhan, identik MoneyGram. **Bukan mock.** |
+| **Withdrawal SEP-24 (protokol)** | **REAL** via **SDF Test Anchor** | Alur withdrawal SEP-24 sungguhan. **Membuktikan protokol**, BUKAN ketersediaan payout Indonesia/MoneyGram. |
+| **Payout IDR/tunai (DANA/GoPay/gerai)** | **DISIMULASIKAN di layer anchor** | Test Anchor membalas instruksi/kode; settlement fiat Indonesia belum nyata. Demo copy wajib jujur. |
 | OTP verifikasi nomor penerima | **REAL** (SMS sandbox) | Provider SMS bisa sandbox. |
 | Soroban registry/riwayat | **REAL bila sempat** | Layer di atas; opsional untuk demo inti. |
-| **Kurs / FX live (RM & HKD → IDR)** | **REAL** | Ambil dari FX rate API sungguhan (mis. exchangerate/open API). Menopang kredibilitas fitur transparansi biaya. |
+| **Rate FX (RM & HKD → IDR)** | **REAL rate, tapi REFERENSI** | Dari FX API sungguhan. `feeIdr` & perbandingan WU = **ESTIMASI/DEMO** — wajib dilabeli + sumber + timestamp. Bukan kurs remittance final. |
 | On-ramp (isi saldo pengirim) | **MOCK** | Danai smart wallet dengan USDC test. |
-| Payout akhir e-wallet/tunai (DANA/GoPay/gerai) | **SIMULASI di tepi anchor** | Anchor test membalas instruksi/kode; jumlah IDR dihitung dari **kurs live real**. |
 | MoneyGram Ramps asli | **PENDING allowlist** | Email partner sejak awal; swap-in bila keburu. |
 | KYC, lisensi | **MOCK** | Jalur produksi di slide. |
 
@@ -496,8 +517,9 @@ Catatan FX: on-chain seluruhnya USDC; konversi ke IDR (dan asal RM/HKD di on-ram
 
 **Langkah 0 — kunci kontrak antar-bagian (WAJIB sebelum paralel).**
 Sepakati *interface* contract escrow supaya tim contract & tim app tak saling tunggu:
-- `deposit(sender, amount, hashlock: BytesN<32>, phone_hash, expiry: u64) -> escrow_id`
-- `claim(escrow_id, secret: Bytes, payout_destination: Address)`
+- `deposit(sender, amount, hashlock: BytesN<32>, recipient_commitment: BytesN<32>, expiry: u64) -> escrow_id`
+  (dipanggil via XDR yang di-sign passkey — backend tak spend dana user)
+- `claim(escrow_id, secret: Bytes, payout_destination: Address)` (destination = settlement allowlist)
 - `refund(escrow_id)`
 - Event/return yang di-emit tiap fungsi + daftar `allowlist` anchor.
 

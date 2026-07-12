@@ -36,10 +36,10 @@ fn happy_path_claim() {
 
     let secret = Bytes::from_array(&env, &[7u8; 32]);
     let hashlock = sha256_32(&env, &secret);
-    let phone_hash = BytesN::from_array(&env, &[1u8; 32]);
+    let commitment = BytesN::from_array(&env, &[1u8; 32]); // HMAC server-side (uji: dummy)
     let expiry = env.ledger().timestamp() + 72 * 3600;
 
-    let id = client.deposit(&sender, &50_0000000, &hashlock, &phone_hash, &expiry);
+    let id = client.deposit(&sender, &50_0000000, &hashlock, &commitment, &expiry);
     client.claim(&id, &secret, &anchor);
 
     assert_eq!(client.get_escrow(&id).status, EscrowStatus::Claimed);
@@ -61,10 +61,10 @@ fn refund_after_expiry() {
 
     let secret = Bytes::from_array(&env, &[7u8; 32]);
     let hashlock = sha256_32(&env, &secret);
-    let phone_hash = BytesN::from_array(&env, &[1u8; 32]);
+    let commitment = BytesN::from_array(&env, &[1u8; 32]); // HMAC server-side (uji: dummy)
     let expiry = env.ledger().timestamp() + 100;
 
-    let id = client.deposit(&sender, &50_0000000, &hashlock, &phone_hash, &expiry);
+    let id = client.deposit(&sender, &50_0000000, &hashlock, &commitment, &expiry);
 
     env.ledger().set_timestamp(expiry + 1); // lewati expiry
     client.refund(&id);

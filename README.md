@@ -1,7 +1,8 @@
 # Sangu — Remittance PMI di Stellar
 
 > Kirim uang pulang semudah kirim pesan. Penerima cairkan tanpa app, tanpa rekening —
-> bahkan bisa **tarik tunai**. Non-custodial, di atas **Stellar / Soroban**.
+> bahkan bisa **tarik tunai**. Wallet pengirim & escrow **non-custodial** (off-ramp trusted),
+> di atas **Stellar / Soroban**.
 >
 > Untuk **Stellar APAC Hackathon** — track **Payment & Consumer Applications**.
 

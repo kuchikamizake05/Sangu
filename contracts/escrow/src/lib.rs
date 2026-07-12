@@ -45,8 +45,12 @@ pub enum EscrowStatus {
 pub struct Escrow {
     pub sender: Address,
     pub amount: i128,          // USDC, 7 desimal (stroops)
-    pub hashlock: BytesN<32>,  // sha256(secret) — secret dipegang backend
-    pub phone_hash: BytesN<32>,// sha256(nomor HP E.164)
+    pub hashlock: BytesN<32>,  // sha256(secret) — secret dipegang backend, TIDAK di URL
+    // Komitmen penerima yang TIDAK dapat direkonstruksi publik.
+    // Dihitung server-side (HMAC dgn kunci rahasia backend), BUKAN sha256(nomor HP) —
+    // nomor HP ruang kecil & brute-force-able. Field ini TIDAK dipakai untuk auth on-chain
+    // (hanya audit/binding); pencocokan nomor HP dilakukan backend saat OTP.
+    pub recipient_commitment: BytesN<32>,
     pub expiry: u64,           // unix seconds (ledger timestamp)
     pub status: EscrowStatus,
 }
@@ -83,7 +87,7 @@ impl EscrowContract {
         sender: Address,
         amount: i128,
         hashlock: BytesN<32>,
-        phone_hash: BytesN<32>,
+        recipient_commitment: BytesN<32>,
         expiry: u64,
     ) -> u64 {
         sender.require_auth();
@@ -106,7 +110,7 @@ impl EscrowContract {
             sender: sender.clone(),
             amount,
             hashlock,
-            phone_hash,
+            recipient_commitment,
             expiry,
             status: EscrowStatus::Pending,
         };

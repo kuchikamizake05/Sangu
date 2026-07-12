@@ -23,18 +23,28 @@ export default async function claimRoutes(app: FastifyInstance) {
 
   app.post("/api/claim/:token/otp/verify", async (req) => {
     const { code } = req.body as { code: string };
-    // TODO: verifikasi OTP + cocokkan phone_hash; keluarkan claimSession
+    // TODO: verifikasi OTP + lookup nomor via HMAC commitment; keluarkan claimSession
     void code;
     return { ok: true, claimSession: crypto.randomUUID() };
   });
 
   app.post("/api/claim/:token/payout", async (req): Promise<PayoutResponse> => {
     const body = req.body as PayoutRequest;
-    // TODO: SEP-24 withdraw (SDF Test Anchor) -> destination settlement account
-    //       -> escrow.claim(escrowId, secret, settlement) -> jembatan ber-memo ke anchor (Spike 3)
+    // Alur nyata: verifikasi OTP -> escrow.claim(escrowId, secret, SETTLEMENT) -> SEP-24 withdraw
+    //   (SDF Test Anchor) ber-memo. NB (review #5): withdrawal SEP-24 = REAL protokol, tetapi
+    //   settlement DANA/GoPay/tunai IDR = DISIMULASIKAN di layer anchor (belum payout Indonesia asli).
     if (body.method === "cash") {
-      return { status: "PAID_OUT", cashCode: "MG-8842-1177", instructions: "Tunjukkan kode + KTP di gerai." };
+      return {
+        status: "PAID_OUT",
+        simulatedPayout: true,
+        cashCode: "DEMO-8842-1177",
+        instructions: "Demo: kode penarikan tunai (payout gerai disimulasikan).",
+      };
     }
-    return { status: "PAID_OUT", instructions: `Dana dikirim ke ${body.method}.` };
+    return {
+      status: "PAID_OUT",
+      simulatedPayout: true,
+      instructions: `Demo: dana disimulasikan dikirim ke ${body.method}.`,
+    };
   });
 }

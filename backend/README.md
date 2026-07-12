@@ -22,7 +22,7 @@ npm run dev               # http://localhost:4000  (GET /health)
 ## Tugas utama (spec §4)
 1. REST API lengkap + DB (mapping token↔escrow, secret, status, riwayat, jadwal).
 2. Relayer: susun & fee-bump tx `deposit`/`claim`/`refund`, baca event.
-3. OTP flow (Twilio Verify / mock) + cocokkan `phone_hash`.
+3. OTP flow (Twilio Verify / mock) + lookup nomor via **HMAC commitment** (bukan sha256 tebakan).
 4. Jembatan **SEP-24 → SDF Test Anchor** (SEP-10 auth → interactive → bayar ber-memo).
 5. Scheduler Sangu Bulanan + keeper `refund` saat expiry.
 

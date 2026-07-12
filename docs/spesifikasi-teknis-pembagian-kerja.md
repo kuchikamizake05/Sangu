@@ -4,8 +4,10 @@
 > *interface* antar-bagian, supaya **smart contract / backend / frontend bisa kerja paralel
 > tanpa saling tunggu**. Konsep produk lengkap ada di `konsep-produk-remittance-pmi.md`.
 >
-> Keputusan terkunci: **non-custodial / all-Soroban**, koridor **Malaysia (RM) + Hong Kong (HKD)**,
-> cash-out via **SDF Test Anchor (SEP-24)**, **kurs live real**, track **Payment & Consumer**.
+> Keputusan terkunci: **all-Soroban; wallet pengirim & escrow non-custodial, off-ramp trusted**
+> (lihat §2.5), koridor **Malaysia (RM) + Hong Kong (HKD)**, cash-out via **SDF Test Anchor
+> (SEP-24)** — withdrawal nyata, payout IDR disimulasikan; **rate FX real (referensi, biaya
+> estimasi)**; track **Payment & Consumer**.
 
 ---
 
@@ -41,13 +43,14 @@ Semua perubahan pada bagian 2 **wajib disepakati bersama** karena mengikat ketig
 pub enum EscrowStatus { Pending, Claimed, Refunded }
 
 #[contracttype]
-#[derive(Clone)]
+#[derive(Clone, Debug)]  // Debug perlu untuk assert_eq! di test
 pub struct Escrow {
-    pub sender: Address,          // passkey smart wallet pengirim
-    pub amount: i128,             // jumlah USDC (7 desimal, stroops)
-    pub hashlock: BytesN<32>,     // sha256(secret) — secret dipegang backend
-    pub phone_hash: BytesN<32>,   // sha256(nomor HP penerima) — privasi
-    pub expiry: u64,              // unix seconds (ledger timestamp)
+    pub sender: Address,              // passkey smart wallet pengirim
+    pub amount: i128,                 // jumlah USDC (7 desimal, stroops)
+    pub hashlock: BytesN<32>,         // sha256(secret) — secret dipegang backend, TIDAK di URL
+    pub recipient_commitment: BytesN<32>, // HMAC server-side; TAK dapat direkonstruksi publik.
+                                          // BUKAN sha256(nomor HP). Tidak dipakai auth on-chain.
+    pub expiry: u64,                  // unix seconds (ledger timestamp)
     pub status: EscrowStatus,
 }
 ```
@@ -57,10 +60,12 @@ pub struct Escrow {
 // dipanggil sekali saat deploy
 fn init(env, admin: Address, usdc_token: Address, anchor_allowlist: Vec<Address>);
 
-// PENGIRIM: butuh sender.require_auth(); transfer USDC sender→contract; simpan; return id
+// PENGIRIM: butuh sender.require_auth(); transfer USDC sender→contract; simpan; return id.
+// NON-CUSTODIAL: backend TIDAK submit atas nama user — ia menyusun XDR unsigned, passkey wallet
+// meng-authorize/sign, lalu di-submit (relayer fee-bump). Lihat §2.3 (send = prepare + submit).
 fn deposit(
     env, sender: Address, amount: i128,
-    hashlock: BytesN<32>, phone_hash: BytesN<32>, expiry: u64
+    hashlock: BytesN<32>, recipient_commitment: BytesN<32>, expiry: u64
 ) -> u64;                         // -> escrow_id
 
 // CLAIM: TANPA require_auth — otorisasi = `secret` (hashlock) + destination ∈ allowlist
@@ -94,20 +99,29 @@ fn remove_anchor(env, admin: Address, anchor: Address);
 **Model otorisasi (penting):**
 - `deposit` → `sender.require_auth()` (passkey wallet menandatangani); **fee dibayar relayer**
   (fee-bump / Launchtube).
-- `claim` → **tak ada** `require_auth`; keamanan dari `secret` + `allowlist`. Relayer memanggil
-  **setelah OTP** lolos. Dana tak bisa dibelokkan (destination wajib anchor allowlist).
+- `claim` → **tak ada** `require_auth`; keamanan dari `secret` + `allowlist`. Backend memanggil
+  **setelah OTP** lolos. Dana tak bisa dibelokkan ke alamat liar (destination wajib allowlist),
+  **tapi** backend mengendalikan pemicuan → bagian dari **batas trusted off-ramp** (§2.5).
 - `refund` → permissionless; dana terikat ke `sender`, jadi keeper mana pun aman memanggilnya.
 
 ### 2.2 Model Link / Secret / OTP (keamanan — siapa pegang apa)
 
-- **`secret`** = nilai acak 32-byte, **dipegang BACKEND** (bukan di URL mentah). `hashlock =
+- **`secret`** = nilai acak 32-byte, **dipegang BACKEND — TIDAK PERNAH di URL/link.** `hashlock =
   sha256(secret)` disimpan on-chain saat `deposit`.
-- **Link claim** yang di-share ke WhatsApp = URL berisi **`token` opaque** (bukan secret),
-  memetakan ke `{escrow_id, phone_hash, secret}` di DB backend.
-- Penerima buka link → **OTP ke nomor HP** → backend verifikasi (cocokkan `sha256(phone)` ==
-  `phone_hash`) → baru backend memanggil `claim(escrow_id, secret, anchorAddr)`.
-- Efek: bahkan bila link bocor, tanpa OTP tak bisa dicairkan; dan dana hanya bisa ke anchor
-  allowlist, tak bisa dicuri. **Non-custodial tetap terjaga** (backend tak bisa membelokkan dana).
+- **Link claim** yang di-share ke WhatsApp = URL berisi **`token` opaque saja** (bukan secret),
+  memetakan ke `{escrow_id, secret, recipient_commitment, phone, nonce}` di DB backend.
+- Penerima buka link → **OTP ke nomor HP** → backend verifikasi nomor (lookup DB via **HMAC**,
+  bukan hash tebakan) → baru backend memicu `claim(escrow_id, secret, SETTLEMENT)`.
+- Efek: bila link bocor, tanpa OTP tak bisa dicairkan; dana hanya bisa ke settlement/anchor
+  allowlist, tak bisa dicuri ke alamat liar.
+
+### 2.5 Batas non-custodial (jujur — jangan over-claim)
+
+- **Non-custodial:** wallet **pengirim** (kunci di user via passkey) + **escrow on-chain** (dana
+  tunduk aturan contract; backend tak pegang key pengirim, tak bisa alihkan dana ke alamat liar).
+- **Trusted / custodial boundary:** **off-ramp**. Backend mengendalikan *kapan* `claim` dipicu,
+  akun **settlement**, memo, dan konversi fiat via anchor. Ini titik terpercaya — wajar untuk
+  semua off-ramp fiat. Klaim resmi: **"wallet pengirim + escrow non-custodial; off-ramp trusted."**
 
 ### 2.3 REST API Backend ↔ Frontend (interface)
 
@@ -117,15 +131,22 @@ fn remove_anchor(env, admin: Address, anchor: Address);
 **Pengirim (butuh sesi login):**
 ```
 GET  /api/quote?corridor=MY&amountForeign=500
-     → { rate, amountIdr, feeIdr, comparison: { westernUnionFeeIdr } }
+     // rate = REAL tapi REFERENSI; biaya = ESTIMASI/DEMO (wajib label + sumber + timestamp)
+     → { rate, amountIdr, estimate:true, rateSource, rateAsOf,
+         feeIdrEstimate, comparison:{ westernUnionFeeIdrEstimate, note } }
 
-POST /api/send
-     body: { corridor: "MY"|"HK", amountForeign, recipientPhone, methodHint? }
-     → { transferId, escrowId, claimUrl, quote, expiry }
+// KIRIM = 2 LANGKAH (non-custodial): backend TIDAK membelanjakan dana user.
+POST /api/send/prepare
+     body: { corridor, amountForeign, recipientPhone, methodHint? }
+     → { transferId, unsignedXDR, quote, expiry }   // unsignedXDR di-authorize passkey wallet
+
+POST /api/send/submit
+     body: { transferId, signedXDR }                 // hasil sign passkey
+     → { transferId, escrowId, claimUrl }            // claimUrl = token opaque, TANPA secret
 
 GET  /api/transfers            → [ { transferId, status, amount, recipientMasked, createdAt } ]
 
-POST /api/recurring            // Sangu Bulanan
+POST /api/recurring            // Sangu Bulanan (tiap kirim tetap perlu sign passkey — lihat catatan §5)
      body: { recipientPhone, corridor, amountForeign, dayOfMonth }
      → { recurringId }
 ```
@@ -137,7 +158,8 @@ POST /api/claim/:token/otp/request   → { sent: true }
 POST /api/claim/:token/otp/verify    body: { code } → { ok, claimSession }
 POST /api/claim/:token/payout
      body: { method: "dana"|"gopay"|"bank"|"cash", details }
-     → { status, cashCode?, instructions? }
+     // withdrawal SEP-24 REAL; settlement IDR/tunai DISIMULASIKAN di layer anchor
+     → { status, simulatedPayout:true, cashCode?, instructions? }
 ```
 
 **Status transfer (enum bersama):** `PENDING` → `CLAIMED` → `PAID_OUT` | `REFUNDED` | `EXPIRED`.
@@ -148,9 +170,11 @@ POST /api/claim/:token/payout
 - **Aset:** USDC test (SAC). Address token & escrow contract id disimpan di `.env` bersama.
 - **Desimal:** USDC 7 desimal (stroops `i128`). Uang di API = string.
 - **Waktu:** `expiry` = unix seconds; default **72 jam**.
-- **Format nomor HP:** E.164 (`+62812...`). `phone_hash = sha256(E164)`.
+- **Format nomor HP:** E.164 (`+62812...`). Komitmen on-chain = **`HMAC(COMMITMENT_KEY, E164 ||
+  nonce)`** (server-side), **bukan** `sha256(E164)`. Lookup DB juga via HMAC.
 - **`.env` bersama (contoh):** `NETWORK`, `RPC_URL`, `HORIZON_URL`, `USDC_SAC`, `ESCROW_ID`,
-  `REGISTRY_ID`, `ANCHOR_SEP24_URL`, `RELAYER_SECRET`, `FX_API_URL`, `OTP_PROVIDER`.
+  `REGISTRY_ID`, `ANCHOR_SEP24_URL`, `RELAYER_SECRET`, `SETTLEMENT_SECRET`, `COMMITMENT_KEY`,
+  `FX_API_URL`, `OTP_PROVIDER`.
 
 ---
 
@@ -171,8 +195,8 @@ POST /api/claim/:token/payout
 2. **Unit test** tiap jalur: happy claim, refund setelah expiry, secret salah, destination bukan
    allowlist, double-claim, claim setelah expiry.
 3. **Deploy ke testnet** + serahkan **contract id**, ABI/spec, dan address USDC SAC ke tim.
-4. **(Layer 2, jika sempat) Registry/Ledger contract:** simpan preferensi penerima (`phone_hash →
-   preference`) + catat riwayat kiriman (fondasi pinjaman mikro).
+4. **(Layer 2, jika sempat) Registry/Ledger contract:** simpan preferensi penerima (kunci =
+   **HMAC commitment**, bukan hash nomor mentah) + catat riwayat kiriman (fondasi pinjaman mikro).
 
 **Catatan integrasi (koordinasi dgn backend):**
 - `claim` mengirim USDC ke `payout_destination`. Untuk SEP-24, destination = **akun settlement
@@ -199,15 +223,20 @@ POST /api/claim/:token/payout
 - **SEP-24 + SEP-10 client** untuk anchor (jembatan cash-out).
 
 **Tugas:**
-1. **REST API** sesuai 2.3 (quote, send, transfers, recurring; claim/otp/payout).
-2. **Relayer:** susun tx `deposit`/`claim`/`refund`, bayar fee, submit ke testnet, baca event.
-3. **Generator link + secret:** buat `secret` (32B), `hashlock`, `token` opaque; simpan mapping.
-4. **OTP flow:** kirim & verifikasi; cocokkan `phone_hash`.
-5. **Kurs live:** ambil dari FX API, hitung `amountIdr`, `feeIdr`, dan **perbandingan Western Union**
-   untuk fitur transparansi biaya.
-6. **Jembatan SEP-24:** SEP-10 auth → `interactive` withdraw → dapat instruksi anchor →
-   trigger `escrow.claim(dest)` → relay ke anchor (dgn memo) → balikin `cashCode`/instruksi.
-7. **Scheduler:** Sangu Bulanan (kirim rutin tiap `dayOfMonth`) + **keeper `refund`** saat expiry.
+1. **REST API** sesuai 2.3 (quote; **send = prepare + submit**; transfers, recurring; claim/otp/payout).
+2. **Deposit non-custodial (#3):** `prepare` susun **XDR unsigned** (backend TAK spend dana user) →
+   frontend sign passkey → `submit` fee-bump + kirim signedXDR. Baca `escrowId` dari event.
+   Untuk `claim`/`refund` (tak butuh auth pengirim) relayer submit langsung.
+3. **Generator secret + commitment:** `secret` (32B) & `hashlock`; **`recipient_commitment` =
+   HMAC(COMMITMENT_KEY, phone||nonce)**. `token` opaque untuk link. **secret & phone tak pernah
+   ke frontend.**
+4. **OTP flow:** kirim & verifikasi; lookup nomor via **HMAC** (bukan sha256 tebakan).
+5. **Kurs/biaya (#6):** rate dari FX API (REAL, referensi) + **label estimasi + `rateSource` +
+   `rateAsOf`**; `feeIdrEstimate` & perbandingan WU = **estimasi/demo**, jangan disebut biaya final.
+6. **Jembatan SEP-24 (#5):** SEP-10 auth → `interactive` withdraw → `escrow.claim(SETTLEMENT)` →
+   relay ke anchor (memo) → balikin `cashCode`/instruksi **bertanda `simulatedPayout:true`**
+   (withdrawal nyata; settlement IDR/tunai disimulasikan).
+7. **Scheduler:** Sangu Bulanan + **keeper `refund`** saat expiry.
 
 **Catatan anchor (wrinkle penting):** SEP-24 anchor bergaya Classic & butuh **memo** untuk
 identifikasi withdrawal, sedangkan transfer Soroban tak membawa memo. Pola: `claim` mengirim USDC
@@ -309,11 +338,12 @@ supaya jalur utama tetap jalan.
 
 ## 8. Definition of Done (demo-ready)
 
-- [ ] Kirim → `deposit` on-chain (terlihat di Explorer) → link WhatsApp.
-- [ ] Buka link → OTP → `claim` → **SEP-24 withdraw nyata (SDF Test Anchor)** → status cair.
-- [ ] Opsi **cash-out** menampilkan kode penarikan (wow moment).
-- [ ] **Transparansi biaya** pakai **kurs live real**.
-- [ ] **Refund otomatis** saat expiry (keeper) — bisa didemokan dengan expiry pendek.
-- [ ] Passkey login non-custodial di sisi pengirim.
+- [ ] Kirim → `prepare` → sign passkey → `submit` → `deposit` on-chain (terlihat di Explorer) → link (token opaque).
+- [ ] Buka link → OTP → `claim` → **withdrawal SEP-24 nyata (SDF Test Anchor)** → status cair
+      (payout IDR/tunai **disimulasikan** — copy jujur).
+- [ ] Opsi **cash-out** menampilkan kode penarikan (wow moment) + label simulasi.
+- [ ] **Transparansi biaya** pakai **rate FX real**, biaya **dilabeli estimasi + sumber + timestamp**.
+- [ ] **Refund otomatis** saat expiry (keeper) — didemokan dengan expiry pendek.
+- [ ] Passkey login + escrow **non-custodial** (off-ramp trusted — sebut apa adanya).
 - [ ] (Bonus) Registry/Ledger contract mencatat riwayat.
-- [ ] Pitch deck: pasar + demo + "kenapa Stellar" + non-custodial + roadmap.
+- [ ] Pitch deck: pasar + demo + "kenapa Stellar" + batas non-custodial jujur + roadmap.

@@ -1,7 +1,14 @@
 "use client";
-// App Pengirim (skeleton). TODO: passkey smart wallet (Spike 1), 4-layar kirim, riwayat, Sangu Bulanan.
+// App Pengirim (skeleton). NON-CUSTODIAL: kirim = prepare → sign passkey → submit (Spike 1).
 import { useState } from "react";
-import { getQuote, send, type Corridor, type Quote } from "@/lib/api";
+import {
+  getQuote,
+  prepareSend,
+  submitSend,
+  signWithPasskey,
+  type Corridor,
+  type Quote,
+} from "@/lib/api";
 
 export default function SenderPage() {
   const [corridor, setCorridor] = useState<Corridor>("MY");
@@ -9,14 +16,23 @@ export default function SenderPage() {
   const [phone, setPhone] = useState("+628120000000");
   const [quote, setQuote] = useState<Quote | null>(null);
   const [claimUrl, setClaimUrl] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
 
   async function refreshQuote() {
     setQuote(await getQuote(corridor, amount));
   }
 
   async function onSend() {
-    const res = await send({ corridor, amountForeign: amount, recipientPhone: phone });
-    setClaimUrl(res.claimUrl);
+    setErr(null);
+    try {
+      // 1) prepare → 2) sign passkey (TODO Spike 1) → 3) submit
+      const prepared = await prepareSend({ corridor, amountForeign: amount, recipientPhone: phone });
+      const signedXDR = await signWithPasskey(prepared.unsignedXDR);
+      const res = await submitSend({ transferId: prepared.transferId, signedXDR });
+      setClaimUrl(res.claimUrl);
+    } catch (e) {
+      setErr((e as Error).message); // hingga Spike 1 selesai: "TODO: passkey-kit sign"
+    }
   }
 
   return (
@@ -43,9 +59,13 @@ export default function SenderPage() {
       {quote && (
         <div style={{ marginTop: 16, padding: 12, background: "#141b33", borderRadius: 8 }}>
           <div>Penerima terima ± Rp {Number(quote.amountIdr).toLocaleString("id-ID")}</div>
-          <div style={{ color: "#8bd18b" }}>Biaya kami: Rp {quote.feeIdr}</div>
+          <div style={{ color: "#8bd18b" }}>Biaya kami (estimasi): Rp {quote.feeIdrEstimate}</div>
           <div style={{ color: "#e08b8b" }}>
-            Western Union: Rp {Number(quote.comparison.westernUnionFeeIdr).toLocaleString("id-ID")}
+            Western Union (estimasi): Rp{" "}
+            {Number(quote.comparison.westernUnionFeeIdrEstimate).toLocaleString("id-ID")}
+          </div>
+          <div style={{ fontSize: 11, opacity: 0.6, marginTop: 6 }}>
+            Estimasi/demo · rate referensi {quote.rateSource} · {new Date(quote.rateAsOf).toLocaleString("id-ID")}
           </div>
         </div>
       )}
@@ -54,6 +74,7 @@ export default function SenderPage() {
         Kirim
       </button>
 
+      {err && <p style={{ color: "#e08b8b", marginTop: 12 }}>⏳ {err}</p>}
       {claimUrl && (
         <p style={{ marginTop: 16 }}>
           Link claim: <a href={claimUrl}>{claimUrl}</a> — bagikan ke WhatsApp.
