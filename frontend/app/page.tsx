@@ -1,85 +1,15 @@
 "use client";
-// App Pengirim (skeleton). NON-CUSTODIAL: kirim = prepare → sign passkey → submit (Spike 1).
+
 import { useState } from "react";
-import {
-  getQuote,
-  prepareSend,
-  submitSend,
-  signWithPasskey,
-  type Corridor,
-  type Quote,
-} from "@/lib/api";
+import { AppShell } from "@/components/app-shell";
+import { TransferHub } from "@/components/sender/transfer-hub";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 
 export default function SenderPage() {
-  const [corridor, setCorridor] = useState<Corridor>("MY");
-  const [amount, setAmount] = useState("500");
-  const [phone, setPhone] = useState("+628120000000");
-  const [quote, setQuote] = useState<Quote | null>(null);
-  const [claimUrl, setClaimUrl] = useState<string | null>(null);
-  const [err, setErr] = useState<string | null>(null);
+  const [isOnboarded, setIsOnboarded] = useState(false);
 
-  async function refreshQuote() {
-    setQuote(await getQuote(corridor, amount));
-  }
+  if (!isOnboarded) return <AppShell><section className="mx-auto max-w-lg py-10 sm:py-20"><p className="mb-3 text-xs font-extrabold tracking-[.18em] text-[#9e1d0e]">SANGU UNTUK PERANTAU</p><h1 className="max-w-md text-5xl font-extrabold leading-[.92] tracking-[-.07em] text-[#080808] sm:text-7xl">Uang pulang, tanpa urusan ribet.</h1><p className="mt-6 max-w-sm text-[#676767]">Masuk sekali dengan perangkatmu. Kunci tetap milikmu, bukan milik Sangu.</p><Card className="mt-10 !border-[#ff5113] !bg-[#ffe7d4]"><p className="text-sm font-bold">Akses aman di perangkat ini</p><p className="mt-2 text-sm text-[#676767]">Siapkan perangkat untuk mengonfirmasi transfer dengan passkey.</p><Button fullWidth className="mt-6" onClick={() => setIsOnboarded(true)}>Siapkan akses perangkat</Button></Card></section></AppShell>;
 
-  async function onSend() {
-    setErr(null);
-    try {
-      // 1) prepare → 2) sign passkey (TODO Spike 1) → 3) submit
-      const prepared = await prepareSend({ corridor, amountForeign: amount, recipientPhone: phone });
-      const signedXDR = await signWithPasskey(prepared.unsignedXDR);
-      const res = await submitSend({ transferId: prepared.transferId, signedXDR });
-      setClaimUrl(res.claimUrl);
-    } catch (e) {
-      setErr((e as Error).message); // hingga Spike 1 selesai: "TODO: passkey-kit sign"
-    }
-  }
-
-  return (
-    <main style={{ maxWidth: 420, margin: "0 auto", padding: 24 }}>
-      <h1>Sangu</h1>
-      <p style={{ opacity: 0.7 }}>Kirim pulang, semudah kirim pesan.</p>
-
-      <label>Koridor</label>
-      <select value={corridor} onChange={(e) => setCorridor(e.target.value as Corridor)}>
-        <option value="MY">Malaysia (RM)</option>
-        <option value="HK">Hong Kong (HKD)</option>
-      </select>
-
-      <div style={{ marginTop: 12 }}>
-        <label>Jumlah</label>
-        <input value={amount} onChange={(e) => setAmount(e.target.value)} onBlur={refreshQuote} />
-      </div>
-
-      <div style={{ marginTop: 12 }}>
-        <label>Nomor penerima</label>
-        <input value={phone} onChange={(e) => setPhone(e.target.value)} />
-      </div>
-
-      {quote && (
-        <div style={{ marginTop: 16, padding: 12, background: "#141b33", borderRadius: 8 }}>
-          <div>Penerima terima ± Rp {Number(quote.amountIdr).toLocaleString("id-ID")}</div>
-          <div style={{ color: "#8bd18b" }}>Biaya kami (estimasi): Rp {quote.feeIdrEstimate}</div>
-          <div style={{ color: "#e08b8b" }}>
-            Western Union (estimasi): Rp{" "}
-            {Number(quote.comparison.westernUnionFeeIdrEstimate).toLocaleString("id-ID")}
-          </div>
-          <div style={{ fontSize: 11, opacity: 0.6, marginTop: 6 }}>
-            Estimasi/demo · rate referensi {quote.rateSource} · {new Date(quote.rateAsOf).toLocaleString("id-ID")}
-          </div>
-        </div>
-      )}
-
-      <button style={{ marginTop: 16, width: "100%", padding: 12 }} onClick={onSend}>
-        Kirim
-      </button>
-
-      {err && <p style={{ color: "#e08b8b", marginTop: 12 }}>⏳ {err}</p>}
-      {claimUrl && (
-        <p style={{ marginTop: 16 }}>
-          Link claim: <a href={claimUrl}>{claimUrl}</a> — bagikan ke WhatsApp.
-        </p>
-      )}
-    </main>
-  );
+  return <AppShell><div className="mx-auto max-w-2xl pb-12"><section className="mb-8 grid gap-4 sm:grid-cols-[1.3fr_.7fr]"><Card className="!bg-[#080808] !text-white"><p className="text-sm text-white/60">Saldo tersedia</p><p className="mt-2 text-4xl font-extrabold tracking-[-.06em]">RM 1,840.00</p><p className="mt-5 text-sm text-white/65">≈ Rp 6.750.000 · saldo demo</p></Card><Card className="flex flex-col justify-between"><p className="font-bold">Kirim pulang</p><p className="my-3 text-sm text-[#676767]">Buat link aman untuk keluarga.</p><a className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#ff5113] px-5 py-3 text-sm font-extrabold text-[#080808] no-underline hover:bg-[#ff7437]" href="/send">Kirim uang</a></Card></section><TransferHub onStartTransfer={() => { window.location.assign("/send"); }} /></div></AppShell>;
 }
