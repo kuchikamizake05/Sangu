@@ -1,0 +1,32 @@
+.page, .claimPage { min-height:100dvh; background:radial-gradient(circle at 85% 4%,var(--peach),transparent 20rem),var(--canvas); color:var(--ink); }
+.page { display:block; padding:16px 16px 88px; }
+.sidebar { display:none; }
+.workspace { min-width:0; }
+.mobileHeader, .claimHeader { align-items:center; display:flex; justify-content:space-between; margin:0 auto; max-width:720px; padding:8px 0 24px; }
+.brand { color:var(--ink); font-size:1.5rem; font-weight:800; letter-spacing:-.08em; text-decoration:none; }
+.brand span { color:var(--orange); }
+.rail { color:var(--muted); font-size:.75rem; font-weight:800; letter-spacing:.02em; }
+.content { margin:0 auto; max-width:720px; }
+.mobileNav { align-items:center; backdrop-filter:blur(16px); background:rgba(255,255,255,.92); border:1px solid var(--line); border-radius:24px; bottom:16px; display:grid; gap:4px; grid-template-columns:repeat(4,1fr); left:16px; padding:6px; position:fixed; right:16px; z-index:10; }
+.mobileNav a { border-radius:18px; color:var(--muted); font-size:.7rem; font-weight:800; min-height:44px; padding:13px 4px; text-align:center; text-decoration:none; }
+.mobileNav a:hover, .mobileNav a:focus-visible { background:var(--peach); color:var(--ink); }
+.mobileNav a[aria-current="page"] { background:var(--peach); color:var(--ink); }
+.claimPage { padding:16px; }
+.claimContent { margin:0 auto; max-width:520px; }
+
+@media (min-width:768px) {
+  .page { display:grid; gap:48px; grid-template-columns:220px minmax(0,1fr); padding:32px 48px; }
+  .sidebar { align-self:start; display:flex; flex-direction:column; min-height:calc(100dvh - 64px); padding:12px 0; position:sticky; top:32px; }
+  .sidebar .rail { margin:10px 0 40px; }
+  .desktopNav { display:grid; gap:6px; }
+  .desktopNav a { border-radius:18px; color:var(--muted); font-weight:750; min-height:44px; padding:12px 16px; text-decoration:none; }
+  .desktopNav a:hover, .desktopNav a:focus-visible { background:var(--peach); color:var(--ink); }
+  .desktopNav a[aria-current="page"] { background:var(--peach); color:var(--ink); }
+  .sendLink { background:var(--orange); border-radius:999px; color:var(--ink); font-weight:850; margin-top:auto; padding:15px 20px; text-align:center; text-decoration:none; }
+  .sendLink:hover, .sendLink:focus-visible { background:var(--orange-hover); }
+  .sendLink[aria-current="page"] { box-shadow:inset 0 0 0 2px var(--ink); }
+  .mobileHeader, .mobileNav { display:none; }
+  .content { max-width:920px; }
+  .claimPage { padding:32px; }
+  .claimHeader { max-width:960px; padding-bottom:36px; }
+}

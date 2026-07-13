@@ -1,0 +1,9 @@
+@import "tailwindcss";
+
+:root { --ink:#080808; --muted:#676767; --canvas:#fcfcfc; --surface:#fff; --line:#ededed; --orange:#ff5113; --orange-hover:#ff7437; --orange-pressed:#9e1d0e; --peach:#ffe7d4; --success:#278f35; --success-wash:#eaf8e8; --danger:#c72307; --danger-wash:#fff0ed; --radius-card:30px; --radius-button:999px; }
+* { box-sizing:border-box; }
+html { background:var(--canvas); }
+body { margin:0; background:var(--canvas); color:var(--ink); font-family:"Avenir Next","Segoe UI",sans-serif; font-size:16px; line-height:1.5; }
+button,input,select { font:inherit; }
+button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible { outline:3px solid rgba(255,81,19,.35); outline-offset:3px; }
+a { color:inherit; }
