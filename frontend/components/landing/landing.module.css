@@ -87,10 +87,6 @@
 .commCard blockquote { margin:0; font-size:16px; line-height:1.55; }
 .commFoot { display:flex; align-items:center; justify-content:space-between; gap:10px; font-size:14px; font-weight:800; }
 .commFlag { display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px; border:1px solid var(--line); font-size:12px; font-weight:700; }
-.commPhoto { position:relative; width:264px; min-height:300px; border-radius:24px; overflow:hidden; display:flex; align-items:flex-end; padding:18px; flex:none; }
-.commPhotoName { position:relative; color:#fff; font-size:15px; font-weight:800; text-shadow:0 2px 10px rgba(0,0,0,.4); }
-.commPhotoBar { position:absolute; top:16px; left:20px; right:20px; height:3px; border-radius:999px; background:rgba(255,255,255,.4); }
-.commPhotoBar::before { content:""; display:block; width:38%; height:100%; border-radius:999px; background:var(--orange); }
 
 /* ---------- security band ---------- */
 .securityBand { background:#000; color:#fff; padding:72px 0; }
@@ -123,13 +119,10 @@
 /* ---------- features (unchanged) ---------- */
 .feature { display:grid; grid-template-columns:1fr 1fr; gap:64px; align-items:center; padding:64px 0; }
 .featureFlip .featureVisual { order:-1; }
-.featureVisual { display:flex; align-items:center; justify-content:center; min-height:380px; border-radius:var(--radius-card); }
+.featureVisual { position:relative; overflow:hidden; display:flex; align-items:center; justify-content:center; min-height:380px; border-radius:var(--radius-card); }
+.featurePhoto { object-fit:cover; }
 .feature h3 { font-size:clamp(28px, 3.6vw, 44px); font-weight:800; letter-spacing:-.05em; line-height:1; margin:0; }
 .feature p { margin:18px 0 26px; max-width:26rem; font-size:17px; color:var(--muted); }
-.miniCards { display:grid; gap:12px; width:min(320px, 80%); }
-.miniCard { background:var(--surface); border:1px solid var(--line); border-radius:18px; padding:14px 16px; font-size:13px; font-weight:700; box-shadow:0 16px 32px -24px rgba(8,8,8,.4); display:flex; justify-content:space-between; align-items:center; gap:10px; }
-.miniCard small { color:var(--muted); font-weight:500; display:block; }
-.miniBadge { border-radius:999px; padding:4px 10px; font-size:11px; font-weight:800; background:var(--success-wash); color:var(--success); flex:none; }
 
 /* ---------- download ---------- */
 .download { position:relative; overflow:hidden; display:grid; grid-template-columns:1fr auto; gap:56px; align-items:center; border-radius:var(--radius-card); background:var(--ink); color:#fff; padding:64px; }

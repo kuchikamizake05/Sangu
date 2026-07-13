@@ -1,24 +1,19 @@
 import styles from "./landing.module.css";
 import { Reveal } from "./reveal";
 
-type Card =
-  | { kind: "quote"; text: string; by: string; flag: string }
-  | { kind: "photo"; by: string; gradient: string };
+type Card = { text: string; by: string; flag: string };
 
 const CARDS: Card[] = [
-  { kind: "quote", text: "Dulu nunggu akhir pekan buat antre di counter. Sekarang sambil rebahan, sangu sudah sampai.", by: "Sari", flag: "🇲🇾 MY" },
-  { kind: "photo", by: "Yanti", gradient: "linear-gradient(160deg,#5d7f9e,#233848 80%)" },
-  { kind: "quote", text: "Ibu di Wonosobo tinggal buka link, uangnya langsung masuk. Nggak perlu ngajarin aplikasi.", by: "Yanti", flag: "🇭🇰 HK" },
-  { kind: "quote", text: "Gajian tanggal 25, tanggal 25 juga sampai di rumah. Sangu Bulanan jalan sendiri.", by: "Budi", flag: "🇲🇾 MY" },
-  { kind: "photo", by: "Rina", gradient: "linear-gradient(160deg,#a2727e,#43242c 80%)" },
-  { kind: "quote", text: "Yang kukirim, itu yang diterima. Nggak ada potongan aneh-aneh di tengah jalan.", by: "Rina", flag: "🇹🇼 TW" },
-  { kind: "quote", text: "Passkey-nya bikin tenang. Nggak ada password yang bisa dibobol orang.", by: "Dewi", flag: "🇸🇦 SA" },
+  { text: "Dulu nunggu akhir pekan buat antre di counter. Sekarang sambil rebahan, sangu sudah sampai.", by: "Sari", flag: "🇲🇾 MY" },
+  { text: "Transfer tengah malam pun tetap sampai. Beda zona waktu, uang tetap masuk dalam hitungan detik.", by: "Fitri", flag: "🇸🇬 SG" },
+  { text: "Ibu di Wonosobo tinggal buka link, uangnya langsung masuk. Nggak perlu ngajarin aplikasi.", by: "Yanti", flag: "🇭🇰 HK" },
+  { text: "Gajian tanggal 25, tanggal 25 juga sampai di rumah. Sangu Bulanan jalan sendiri.", by: "Budi", flag: "🇲🇾 MY" },
+  { text: "Sekali atur jadwal, tiap bulan berangkat otomatis. Aku nggak pernah lupa kirim sangu lagi.", by: "Hendra", flag: "🇦🇪 AE" },
+  { text: "Yang kukirim, itu yang diterima. Nggak ada potongan aneh-aneh di tengah jalan.", by: "Rina", flag: "🇹🇼 TW" },
+  { text: "Passkey-nya bikin tenang. Nggak ada password yang bisa dibobol orang.", by: "Dewi", flag: "🇸🇦 SA" },
 ];
 
 function CardView({ card }: { card: Card }) {
-  if (card.kind === "photo") {
-    return <div className={styles.commPhoto} style={{ background: card.gradient }} aria-hidden="true"><span className={styles.commPhotoBar} /><span className={styles.commPhotoName}>{card.by}</span></div>;
-  }
   return <figure className={styles.commCard}>
     <blockquote>{card.text}</blockquote>
     <figcaption className={styles.commFoot}><span>{card.by}</span><span className={styles.commFlag}>{card.flag}</span></figcaption>
