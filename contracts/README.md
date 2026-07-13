@@ -4,11 +4,11 @@ Owner: tim **Smart Contract**. Interface = `docs/spesifikasi-teknis-pembagian-ke
 (**jangan ubah signature tanpa kesepakatan tim**).
 
 ## Prasyarat
-- Rust + target `wasm32-unknown-unknown`
+- Rust + target `wasm32v1-none`
 - [`stellar-cli`](https://developers.stellar.org/docs/tools/developer-tools) (dulu `soroban-cli`)
 
 ```bash
-rustup target add wasm32-unknown-unknown
+rustup target add wasm32v1-none
 cargo install --locked stellar-cli
 ```
 
@@ -16,19 +16,20 @@ cargo install --locked stellar-cli
 ```bash
 cd contracts
 cargo test                 # unit test (lengkapi kasus gagal di escrow/src/test.rs)
-stellar contract build     # hasilkan .wasm
+stellar contract build     # hasilkan .wasm di target/wasm32v1-none/release/
 ```
 
 ## Deploy ke testnet (contoh)
 ```bash
 stellar keys generate admin --network testnet --fund
-stellar contract deploy --wasm target/wasm32-unknown-unknown/release/escrow.wasm \
-  --source admin --network testnet
-# -> catat CONTRACT_ID, isi ke .env bersama (ESCROW_ID)
 
-# init: token = SAC USDC yang DITERIMA anchor (Spike 2); anchors = [settlement account]
-stellar contract invoke --id <ESCROW_ID> --source admin --network testnet -- \
-  init --admin <ADMIN_G...> --usdc_token <USDC_SAC> --anchor_allowlist '[ "<SETTLEMENT_G...>" ]'
+# Kontrak dijalankan via __constructor (tidak ada fungsi `init` terpisah) — arg constructor
+# diberikan langsung saat deploy: admin, token = SAC USDC yang DITERIMA anchor (Spike 2),
+# anchors = [settlement account].
+stellar contract deploy --wasm target/wasm32v1-none/release/escrow.wasm \
+  --source admin --network testnet \
+  -- --admin <ADMIN_G...> --usdc_token <USDC_SAC> --anchor_allowlist '[ "<SETTLEMENT_G...>" ]'
+# -> catat CONTRACT_ID, isi ke .env bersama (ESCROW_ID)
 ```
 
 ## Serahkan ke tim
@@ -39,7 +40,7 @@ stellar contract invoke --id <ESCROW_ID> --source admin --network testnet -- \
 ## Fungsi
 | Fungsi | Auth | Catatan |
 |---|---|---|
-| `init` | — (sekali) | set admin, token, anchor allowlist |
+| `__constructor` | — (sekali, saat deploy) | set admin, token, anchor allowlist |
 | `deposit` | `sender.require_auth()` | transfer USDC→escrow; return `escrow_id` |
 | `claim` | tanpa auth (secret+allowlist) | dipanggil backend pasca-OTP |
 | `refund` | permissionless | hanya setelah expiry; dana ke sender |
