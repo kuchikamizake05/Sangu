@@ -12,17 +12,17 @@ import kunciImg from "@/asset/fitur/kunci.png";
 import sanguBulananImg from "@/asset/fitur/sangu-bulanan.png";
 import keluargaKlaimImg from "@/asset/fitur/keluarga-klaim2.png";
 
-type StripCard = { image: StaticImageData; alt: string; name?: string; flag?: string };
+type StripCard = { image: StaticImageData; alt: string };
 
 const CARDS: StripCard[] = [
-  { image: hero3Img, alt: "Perempuan mengirim uang dengan kurs asli dari rooftop kota.", name: "Yanti", flag: "🇭🇰" },
+  { image: hero3Img, alt: "Perempuan mengirim uang dengan kurs asli dari rooftop kota." },
   { image: kunciImg, alt: "Layar pengaturan keamanan dan passkey di ponsel." },
-  { image: hero1Img, alt: "Perempuan menerima pembayaran di ponselnya.", name: "Sari", flag: "🇲🇾" },
-  { image: sanguBulananImg, alt: "Mengirim nominal sangu secara terjadwal tiap bulan.", name: "Dewi", flag: "🇸🇦" },
+  { image: hero1Img, alt: "Perempuan menerima pembayaran di ponselnya." },
+  { image: sanguBulananImg, alt: "Mengirim nominal sangu secara terjadwal tiap bulan." },
   { image: keluargaKlaimImg, alt: "Ratna di Indonesia menerima transfer instan lewat link." },
-  { image: kirimUangImg, alt: "Perantau mengirim uang lintas mata uang lewat aplikasi.", name: "Andi", flag: "🇹🇼" },
+  { image: kirimUangImg, alt: "Perantau mengirim uang lintas mata uang lewat aplikasi." },
   { image: hero4Img, alt: "Notifikasi transfer diterima di layar ponsel." },
-  { image: hero2Img, alt: "Laki-laki membuka aplikasi transfer di pesawat.", name: "Budi", flag: "🇸🇬" },
+  { image: hero2Img, alt: "Laki-laki membuka aplikasi transfer di pesawat." },
 ];
 
 const REPEAT = 4;
@@ -31,7 +31,6 @@ const STEP_MS = 3400;
 function StripCardView({ card, wide }: { card: StripCard; wide: boolean }) {
   return <div className={`${styles.stripCard} ${wide ? styles.stripCardWide : ""}`}>
     <Image src={card.image} alt={card.alt} fill sizes="600px" className={styles.stripPhoto} />
-    {card.name && <span className={styles.stripBadge}>{card.name} <span aria-hidden="true">{card.flag}</span></span>}
   </div>;
 }
 

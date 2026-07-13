@@ -31,7 +31,6 @@
 .stripTrackNoAnim { transition:none; }
 .stripCard { position:relative; flex:none; width:190px; height:360px; border-radius:26px; overflow:hidden; transition:width 1.2s cubic-bezier(.65,0,.35,1); display:flex; align-items:center; justify-content:center; }
 .stripCardWide { width:var(--strip-wide); }
-.stripBadge { position:absolute; left:14px; bottom:14px; display:inline-flex; align-items:center; gap:8px; padding:7px 14px; border-radius:999px; background:rgba(255,255,255,.85); backdrop-filter:blur(8px); font-size:13px; font-weight:800; white-space:nowrap; }
 .stripPhoto { object-fit:cover; }
 
 /* phone mockup placeholder */
@@ -39,8 +38,8 @@
 /* ---------- partner ticker ---------- */
 .tickerSection { padding:88px 0; }
 .tickerLabel { text-align:center; margin:0 auto 48px; max-width:18ch; font-size:clamp(32px, 4.4vw, 56px); font-weight:800; letter-spacing:-.045em; line-height:1.02; }
-.ticker { overflow:hidden; mask-image:linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); }
-.tickerTrack { display:flex; align-items:center; gap:72px; width:max-content; padding-right:72px; animation:ticker-scroll 28s linear infinite; }
+.ticker { overflow:hidden; max-width:1160px; margin-inline:auto; mask-image:linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent); }
+.tickerTrack { display:flex; align-items:center; gap:72px; width:max-content; padding-right:72px; animation:ticker-scroll 26s linear infinite; }
 @keyframes ticker-scroll { to { transform:translateX(-50%); } }
 .tickerItem { font-size:30px; font-weight:800; letter-spacing:-.03em; color:rgba(8,8,8,.5); white-space:nowrap; }
 
