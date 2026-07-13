@@ -16,7 +16,7 @@ jobs:
     with:
       release_name: ${{ github.ref_name }}
       package: "escrow"
-      relative_path: '["contracts/escrow"]'
+      relative_path: "contracts/escrow"
       make_target: ""
     secrets:
       release_token: ${{ secrets.GITHUB_TOKEN }}
