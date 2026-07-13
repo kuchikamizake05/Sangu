@@ -100,24 +100,44 @@ export default async function claimRoutes(app: FastifyInstance) {
     }
     await updateTransfer(t.transferId, { status: "CLAIMED", claimTxHash });
 
-    // 2) jembatan SEP-24: withdraw interaktif + pembayaran Classic ber-memo ke anchor.
+    // 2) jembatan SEP-24: mulai withdraw interaktif. Anchor BARU memberi akun tujuan +
+    //    memo setelah penerima menyelesaikan interactive URL — jadi pembayaran Classic
+    //    ber-memo TIDAK dilakukan di sini, melainkan oleh poller di scheduler yang
+    //    memantau status anchor (fast-path di bawah menangani anchor yang langsung siap).
     //    Best-effort — kegagalan anchor tidak membatalkan claim (dana sudah di settlement).
     let instructions: string | undefined;
+    let anchorTxId: string | undefined;
+    let interactiveUrl: string | undefined;
     try {
       const amountUsdc = (Number(t.amountUsdcStroops) / 1e7).toFixed(2);
       const wd = await startWithdraw(amountUsdc);
       if (!wd.simulated) {
+        anchorTxId = wd.anchorTxId;
+        interactiveUrl = wd.interactiveUrl;
+        let anchorStatus: string | null = null;
+        let anchorPaymentTxHash: string | null = null;
+        // Fast-path: bila anchor langsung siap (tanpa langkah interaktif), bayar sekarang.
         const info = await getWithdrawInfo(wd.anchorTxId);
+        anchorStatus = info.status;
         if (info.withdrawAnchorAccount && info.withdrawMemo) {
           // bayar sesuai jumlah withdraw yang diterima anchor (sudah di-clamp limit)
-          await payAnchorWithMemo(
+          ({ txHash: anchorPaymentTxHash } = await payAnchorWithMemo(
             info.withdrawAnchorAccount,
             wd.amountUsdc,
             info.withdrawMemo,
             info.withdrawMemoType
-          );
+          ));
         }
-        instructions = `Withdrawal SEP-24 dimulai (anchor tx ${wd.anchorTxId}).`;
+        await updateTransfer(t.transferId, {
+          anchorTxId: wd.anchorTxId,
+          anchorStatus,
+          anchorAmountUsdc: wd.amountUsdc,
+          anchorInteractiveUrl: wd.interactiveUrl,
+          anchorPaymentTxHash,
+        });
+        instructions = anchorPaymentTxHash
+          ? `Withdrawal SEP-24 dibayar ke anchor (anchor tx ${wd.anchorTxId}).`
+          : `Withdrawal SEP-24 dimulai (anchor tx ${wd.anchorTxId}). Selesaikan langkah interaktif anchor; backend membayar otomatis setelahnya.`;
       }
     } catch (err) {
       req.log.warn({ err }, "jembatan SEP-24 gagal — claim tetap sah, payout disimulasikan");
@@ -138,6 +158,7 @@ export default async function claimRoutes(app: FastifyInstance) {
     const res: PayoutResponse = {
       status: "PAID_OUT",
       simulatedPayout: true,
+      ...(anchorTxId ? { anchorTxId, interactiveUrl } : {}),
       ...(cashCode
         ? {
             cashCode,

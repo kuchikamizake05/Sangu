@@ -7,17 +7,21 @@
 import type { FastifyBaseLogger } from "fastify";
 import {
   listExpiredPending,
+  listAnchorAwaitingPayment,
   updateTransfer,
   listRecurringDue,
   markRecurringTriggered,
 } from "./db.js";
 import { isOnchainEnabled, refund } from "../stellar/escrow.js";
+import { isAnchorEnabled, getWithdrawInfo, payAnchorWithMemo } from "../anchor/sep24.js";
 
 const KEEPER_INTERVAL_MS = Number(process.env.KEEPER_INTERVAL_MS ?? 30_000);
 const RECURRING_INTERVAL_MS = 60 * 60 * 1000; // cek jam-jaman cukup untuk jadwal harian
+const ANCHOR_POLL_INTERVAL_MS = Number(process.env.ANCHOR_POLL_INTERVAL_MS ?? 20_000);
 
 let timers: NodeJS.Timeout[] = [];
 let keeperBusy = false;
+let anchorBusy = false;
 
 async function keeperTick(log: FastifyBaseLogger) {
   if (keeperBusy) return; // jangan tumpuk bila tick sebelumnya masih jalan
@@ -45,6 +49,43 @@ async function keeperTick(log: FastifyBaseLogger) {
   }
 }
 
+// Poller SEP-24 (spec §4): anchor baru memberi akun tujuan + memo SETELAH penerima
+// menyelesaikan interactive URL. Poller memantau withdrawal yang belum dibayar; begitu
+// status pending_user_transfer_start (memo tersedia), bayar Classic ber-memo dari
+// settlement — tepat sekali (anchorPaymentTxHash non-null mengeluarkannya dari daftar).
+async function anchorTick(log: FastifyBaseLogger) {
+  if (anchorBusy || !isAnchorEnabled()) return;
+  anchorBusy = true;
+  try {
+    for (const t of await listAnchorAwaitingPayment()) {
+      try {
+        const info = await getWithdrawInfo(t.anchorTxId!);
+        if (info.status !== t.anchorStatus) {
+          await updateTransfer(t.transferId, { anchorStatus: info.status });
+        }
+        if (info.withdrawAnchorAccount && info.withdrawMemo) {
+          const { txHash } = await payAnchorWithMemo(
+            info.withdrawAnchorAccount,
+            t.anchorAmountUsdc ?? (Number(t.amountUsdcStroops) / 1e7).toFixed(2),
+            info.withdrawMemo,
+            info.withdrawMemoType,
+          );
+          await updateTransfer(t.transferId, { anchorPaymentTxHash: txHash });
+          log.info(
+            { transferId: t.transferId, anchorTxId: t.anchorTxId, txHash },
+            "anchor poller: pembayaran memo ke anchor terkirim",
+          );
+        }
+      } catch (err) {
+        // biarkan tick berikutnya mencoba lagi — jangan hentikan loop karena satu kegagalan
+        log.warn({ err, transferId: t.transferId }, "anchor poller: gagal, akan dicoba lagi");
+      }
+    }
+  } finally {
+    anchorBusy = false;
+  }
+}
+
 async function recurringTick(log: FastifyBaseLogger) {
   const now = Math.floor(Date.now() / 1000);
   const today = new Date().getDate();
@@ -62,9 +103,10 @@ async function recurringTick(log: FastifyBaseLogger) {
 export function startScheduler(log: FastifyBaseLogger) {
   timers.push(setInterval(() => void keeperTick(log), KEEPER_INTERVAL_MS));
   timers.push(setInterval(() => void recurringTick(log), RECURRING_INTERVAL_MS));
+  timers.push(setInterval(() => void anchorTick(log), ANCHOR_POLL_INTERVAL_MS));
   log.info(
-    { keeperIntervalMs: KEEPER_INTERVAL_MS },
-    "scheduler aktif (keeper refund + Sangu Bulanan)"
+    { keeperIntervalMs: KEEPER_INTERVAL_MS, anchorPollIntervalMs: ANCHOR_POLL_INTERVAL_MS },
+    "scheduler aktif (keeper refund + poller anchor SEP-24 + Sangu Bulanan)"
   );
 }
 

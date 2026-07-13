@@ -153,9 +153,15 @@ export async function prepareDeposit(p: PrepareDepositParams): Promise<{ unsigne
   const assembled = rpc.assembleTransaction(tx, sim).build();
 
   // Naikkan resource fee dgn margin supaya muat setelah signature auth entry ditambahkan.
-  const margin = 200_000;
-  const bumpedFee = (BigInt(assembled.fee) + BigInt(margin)).toString();
-  const bumped = TransactionBuilder.cloneFrom(assembled, { fee: bumpedFee }).build();
+  // PENTING: cloneFrom TIDAK membawa sorobanData (ext) — wajib di-set ulang eksplisit,
+  // kalau tidak tx jadi txMalformed (soroban op tanpa sorobanTransactionData).
+  const margin = 200_000n;
+  const sorobanData = assembled.toEnvelope().v1().tx().ext().sorobanData();
+  sorobanData.resourceFee(
+    xdr.Int64.fromString((BigInt(sorobanData.resourceFee().toString()) + margin).toString()),
+  );
+  const bumpedFee = (BigInt(assembled.fee) + margin).toString();
+  const bumped = TransactionBuilder.cloneFrom(assembled, { fee: bumpedFee, sorobanData }).build();
 
   return { unsignedXDR: bumped.toXDR() };
 }

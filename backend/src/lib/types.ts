@@ -71,4 +71,9 @@ export interface PayoutResponse {
   simulatedPayout: true; // jujur: leg fiat/tunai belum real
   cashCode?: string;
   instructions?: string;
+  // SEP-24: anchor baru memberi memo tujuan SETELAH interactive flow diselesaikan.
+  // Frontend menampilkan interactiveUrl ke penerima; backend memantau (scheduler) dan
+  // membayar anchor otomatis begitu status pending_user_transfer_start.
+  anchorTxId?: string;
+  interactiveUrl?: string;
 }

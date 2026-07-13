@@ -27,6 +27,12 @@ export interface TransferRecord {
   claimTxHash: string | null;
   payoutMethod: string | null;
   cashCode: string | null;
+  // Jembatan SEP-24 (hanya terisi untuk withdrawal anchor NYATA, bukan SIM-):
+  anchorTxId: string | null;
+  anchorStatus: string | null; // status terakhir dari anchor (incomplete, pending_user_transfer_start, ...)
+  anchorAmountUsdc: string | null; // jumlah withdraw setelah clamp limit anchor
+  anchorInteractiveUrl: string | null;
+  anchorPaymentTxHash: string | null; // tx pembayaran memo settlement->anchor; non-null = sudah dibayar
   createdAt: number;
   updatedAt: number;
 }
@@ -79,9 +85,21 @@ const SCHEMA_SQL = `
     "claimTxHash" TEXT,
     "payoutMethod" TEXT,
     "cashCode" TEXT,
+    "anchorTxId" TEXT,
+    "anchorStatus" TEXT,
+    "anchorAmountUsdc" TEXT,
+    "anchorInteractiveUrl" TEXT,
+    "anchorPaymentTxHash" TEXT,
     "createdAt" BIGINT NOT NULL,
     "updatedAt" BIGINT NOT NULL
   );
+
+  -- Migrasi idempoten untuk tabel yang sudah ada sebelum kolom anchor ditambahkan.
+  ALTER TABLE transfers ADD COLUMN IF NOT EXISTS "anchorTxId" TEXT;
+  ALTER TABLE transfers ADD COLUMN IF NOT EXISTS "anchorStatus" TEXT;
+  ALTER TABLE transfers ADD COLUMN IF NOT EXISTS "anchorAmountUsdc" TEXT;
+  ALTER TABLE transfers ADD COLUMN IF NOT EXISTS "anchorInteractiveUrl" TEXT;
+  ALTER TABLE transfers ADD COLUMN IF NOT EXISTS "anchorPaymentTxHash" TEXT;
 
   CREATE TABLE IF NOT EXISTS otps (
     "token" TEXT PRIMARY KEY,
@@ -154,12 +172,29 @@ function rowToTransfer(row: Record<string, unknown>): TransferRecord {
     claimTxHash: row.claimTxHash as string | null,
     payoutMethod: row.payoutMethod as string | null,
     cashCode: row.cashCode as string | null,
+    anchorTxId: row.anchorTxId as string | null,
+    anchorStatus: row.anchorStatus as string | null,
+    anchorAmountUsdc: row.anchorAmountUsdc as string | null,
+    anchorInteractiveUrl: row.anchorInteractiveUrl as string | null,
+    anchorPaymentTxHash: row.anchorPaymentTxHash as string | null,
     createdAt: Number(row.createdAt),
     updatedAt: Number(row.updatedAt),
   };
 }
 
-export async function createTransfer(t: Omit<TransferRecord, "createdAt" | "updatedAt">): Promise<void> {
+// Kolom anchor tidak ikut di create — selalu NULL sampai payout memulai withdraw SEP-24.
+export async function createTransfer(
+  t: Omit<
+    TransferRecord,
+    | "createdAt"
+    | "updatedAt"
+    | "anchorTxId"
+    | "anchorStatus"
+    | "anchorAmountUsdc"
+    | "anchorInteractiveUrl"
+    | "anchorPaymentTxHash"
+  >,
+): Promise<void> {
   const ts = nowSec();
   await query(
     `
@@ -207,6 +242,7 @@ const TRANSFER_UPDATABLE_COLUMNS = new Set<string>([
   "secretHex", "hashlockHex", "commitmentHex", "nonceHex",
   "phoneE164", "senderAddress", "senderName", "expiry",
   "depositTxHash", "claimTxHash", "payoutMethod", "cashCode",
+  "anchorTxId", "anchorStatus", "anchorAmountUsdc", "anchorInteractiveUrl", "anchorPaymentTxHash",
 ]);
 
 export async function updateTransfer(
@@ -226,6 +262,21 @@ export async function updateTransfer(
 
 export async function listTransfers(): Promise<TransferRecord[]> {
   const res = await query(`SELECT * FROM transfers ORDER BY "createdAt" DESC`);
+  return res.rows.map(rowToTransfer);
+}
+
+// Withdrawal SEP-24 yang masih perlu dipantau: sudah punya anchorTxId, belum dibayar,
+// dan status anchor terakhir belum terminal. Dipakai poller di scheduler.
+const ANCHOR_TERMINAL_STATUSES = ["completed", "refunded", "expired", "error", "no_market"];
+
+export async function listAnchorAwaitingPayment(): Promise<TransferRecord[]> {
+  const res = await query(
+    `SELECT * FROM transfers
+     WHERE "anchorTxId" IS NOT NULL
+       AND "anchorPaymentTxHash" IS NULL
+       AND ("anchorStatus" IS NULL OR NOT ("anchorStatus" = ANY($1)))`,
+    [ANCHOR_TERMINAL_STATUSES],
+  );
   return res.rows.map(rowToTransfer);
 }
 
