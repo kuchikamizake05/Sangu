@@ -40,6 +40,7 @@ Env tambahan (semua punya default dev — WAJIB diisi untuk produksi):
 | `PHONE_HMAC_KEY` | HMAC lookup nomor HP di tabel `senders` | `sangu-dev-phone-hmac` |
 | `AUTH_RP_ID` | rpID WebAuthn (domain frontend tanpa skema) | `localhost` |
 | `AUTH_ORIGIN` | origin frontend untuk verifikasi WebAuthn | `http://localhost:3000` |
+| `RECURRING_INTERVAL_MS` | interval cek jadwal Sangu Bulanan (percepat untuk demo `dueNow`) | 1 jam |
 
 ## Catatan penting
 - **secret** dibuat & disimpan backend (`src/stellar/escrow.ts#newSecret`), **tidak** di URL.

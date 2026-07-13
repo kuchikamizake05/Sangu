@@ -67,7 +67,8 @@ export interface RecurringRecord {
   dayOfMonth: number;
   status: "ACTIVE" | "PAUSED";
   createdAt: number;
-  lastTriggeredAt: number | null;
+  lastTriggeredAt: number | null; // diisi scheduler saat jatuh tempo
+  lastSentAt: number | null; // diisi saat pengirim menindaklanjuti (menutup siklus "due")
 }
 
 const connectionString = process.env.DATABASE_URL;
@@ -187,6 +188,7 @@ const SCHEMA_SQL = `
 
   ALTER TABLE transfers ADD COLUMN IF NOT EXISTS "senderId" TEXT;
   ALTER TABLE recurring ADD COLUMN IF NOT EXISTS "senderId" TEXT;
+  ALTER TABLE recurring ADD COLUMN IF NOT EXISTS "lastSentAt" BIGINT;
 `;
 
 let schemaReady: Promise<void> | null = null;
@@ -409,7 +411,7 @@ export async function validateClaimSession(token: string, session: string): Prom
 }
 
 // ── Sangu Bulanan (recurring) ──
-export async function createRecurring(r: Omit<RecurringRecord, "createdAt" | "lastTriggeredAt" | "status">): Promise<void> {
+export async function createRecurring(r: Omit<RecurringRecord, "createdAt" | "lastTriggeredAt" | "lastSentAt" | "status">): Promise<void> {
   await query(
     `
     INSERT INTO recurring ("recurringId", "senderId", "recipientPhone", "corridor", "amountForeign", "dayOfMonth", "status", "createdAt", "lastTriggeredAt")
@@ -430,6 +432,7 @@ function rowToRecurring(row: Record<string, unknown>): RecurringRecord {
     status: row.status as "ACTIVE" | "PAUSED",
     createdAt: Number(row.createdAt),
     lastTriggeredAt: row.lastTriggeredAt == null ? null : Number(row.lastTriggeredAt),
+    lastSentAt: row.lastSentAt == null ? null : Number(row.lastSentAt),
   };
 }
 
@@ -484,6 +487,11 @@ export async function listRecurringDue(dayOfMonth: number, nowSecArg: number): P
 
 export async function markRecurringTriggered(recurringId: string, ts: number): Promise<void> {
   await query(`UPDATE recurring SET "lastTriggeredAt" = $1 WHERE "recurringId" = $2`, [ts, recurringId]);
+}
+
+/** Pengirim menindaklanjuti siklus yang jatuh tempo (kirim / tutup banner) → dueNow padam. */
+export async function markRecurringSent(recurringId: string, ts: number): Promise<void> {
+  await query(`UPDATE recurring SET "lastSentAt" = $1 WHERE "recurringId" = $2`, [ts, recurringId]);
 }
 
 // ── Senders (auth pengirim) ──

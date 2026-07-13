@@ -34,6 +34,7 @@ import {
   deleteRecurring,
   getRecurringById,
   listRecurring,
+  markRecurringSent,
   updateRecurring,
 } from "../lib/db.js";
 import { maskPhone } from "../lib/auth.js";
@@ -216,13 +217,30 @@ export default async function senderRoutes(app: FastifyInstance) {
     (await listRecurring(req.user.senderId)).map((recurring) => ({
       recurringId: recurring.recurringId,
       recipientMasked: maskPhone(recurring.recipientPhone),
+      recipientPhone: recurring.recipientPhone, // untuk prefill form kirim saat dueNow
       corridor: recurring.corridor,
       amountForeign: recurring.amountForeign,
       dayOfMonth: recurring.dayOfMonth,
       status: recurring.status,
       nextRunAt: nextRunAt(recurring.dayOfMonth),
+      // dueNow: scheduler sudah menandai jatuh tempo & pengirim belum menindaklanjuti.
+      // Padamkan dengan POST /api/recurring/:id/sent setelah kirim (atau tutup banner).
+      dueNow:
+        recurring.lastTriggeredAt !== null &&
+        (recurring.lastSentAt === null || recurring.lastSentAt < recurring.lastTriggeredAt),
+      lastTriggeredAt:
+        recurring.lastTriggeredAt === null ? null : new Date(recurring.lastTriggeredAt * 1000).toISOString(),
     }))
   );
+
+  // Pengirim menindaklanjuti siklus jatuh tempo (selesai kirim / tutup ajakan) → dueNow padam.
+  app.post("/api/recurring/:recurringId/sent", authed, async (req, reply) => {
+    const { recurringId } = req.params as { recurringId: string };
+    const existing = await getRecurringById(recurringId);
+    if (!existing || existing.senderId !== req.user.senderId) { reply.code(404); return { error: { code: "NOT_FOUND", message: "jadwal tidak ditemukan" } }; }
+    await markRecurringSent(recurringId, Math.floor(Date.now() / 1000));
+    return { recurringId, dueNow: false };
+  });
 
   app.get("/api/transfers/:transferId", authed, async (req, reply) => {
     const { transferId } = req.params as { transferId: string };

@@ -104,6 +104,31 @@ Tanpa/invalid token → `401 { error: { code: "UNAUTHORIZED", message } }`.
 dari profil sender (hasil passkey register). `senderName` di link claim otomatis
 terisi nama sender.
 
+### 2.5 Sangu Bulanan — status jatuh tempo (BARU, untuk banner "siap kirim")
+
+`GET /api/recurring` kini mengembalikan field tambahan per jadwal:
+
+```
+recipientPhone  : string          // nomor penuh — untuk prefill form kirim (pemiliknya sendiri)
+dueNow          : boolean         // true = jatuh tempo & belum ditindaklanjuti
+lastTriggeredAt : string | null   // ISO — kapan scheduler menandai jatuh tempo
+```
+
+Menutup siklus:
+
+```
+POST /api/recurring/:recurringId/sent    // butuh Bearer JWT
+  200 : { recurringId, dueNow: false }
+```
+
+Alur FE yang diharapkan: bila ada jadwal `dueNow` → tampilkan banner/kartu
+"Sangu Bulanan siap dikirim" di dashboard → klik = buka form kirim ter-prefill
+(recipientPhone, corridor, amountForeign) → setelah submit send sukses (atau user
+menutup ajakan), panggil `POST .../sent` supaya banner padam sampai siklus berikutnya.
+
+Demo/uji: set env BE `RECURRING_INTERVAL_MS=2000` + jadwal `dayOfMonth` = hari ini
+→ `dueNow` menyala dalam ~2 detik.
+
 ---
 
 ## 3. Pekerjaan BACKEND (Wangsit)
