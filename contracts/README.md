@@ -1,11 +1,11 @@
 # contracts/ — Soroban Escrow (Rust)
 
-Owner: tim **Smart Contract**. Interface = `docs/spesifikasi-teknis-pembagian-kerja.md` §2.1
-(**jangan ubah signature tanpa kesepakatan tim**).
+Owner: **Smart Contract** team. Interface = `docs/spesifikasi-teknis-pembagian-kerja.md` §2.1
+(**do not change the signature without team agreement**).
 
-## Prasyarat
-- Rust + target `wasm32v1-none`
-- [`stellar-cli`](https://developers.stellar.org/docs/tools/developer-tools) (dulu `soroban-cli`)
+## Prerequisites
+- Rust + `wasm32v1-none` target
+- [`stellar-cli`](https://developers.stellar.org/docs/tools/developer-tools) (formerly `soroban-cli`)
 
 ```bash
 rustup target add wasm32v1-none
@@ -15,34 +15,34 @@ cargo install --locked stellar-cli
 ## Build & test
 ```bash
 cd contracts
-cargo test                 # unit test (lengkapi kasus gagal di escrow/src/test.rs)
-stellar contract build     # hasilkan .wasm di target/wasm32v1-none/release/
+cargo test                 # unit tests (extend failure cases in escrow/src/test.rs)
+stellar contract build     # produces .wasm in target/wasm32v1-none/release/
 ```
 
-## Deploy ke testnet (contoh)
+## Deploy to testnet (example)
 ```bash
 stellar keys generate admin --network testnet --fund
 
-# Kontrak dijalankan via __constructor (tidak ada fungsi `init` terpisah) — arg constructor
-# diberikan langsung saat deploy: admin, token = SAC USDC yang DITERIMA anchor (Spike 2),
-# anchors = [settlement account].
+# The contract runs via __constructor (no separate `init` function) — constructor args
+# are supplied directly at deploy time: admin, token = the USDC SAC ACCEPTED by the anchor
+# (Spike 2), anchors = [settlement account].
 stellar contract deploy --wasm target/wasm32v1-none/release/escrow.wasm \
   --source admin --network testnet \
   -- --admin <ADMIN_G...> --usdc_token <USDC_SAC> --anchor_allowlist '[ "<SETTLEMENT_G...>" ]'
-# -> catat CONTRACT_ID, isi ke .env bersama (ESCROW_ID)
+# -> note the CONTRACT_ID, fill it into the shared .env (ESCROW_ID)
 ```
 
-## Serahkan ke tim
-- `ESCROW_ID`, `USDC_SAC`, address settlement yang di-allowlist
-- Format **event** (`deposit`/`claim`/`refund`) — backend membacanya
-- Spec/ABI hasil build
+## Hand off to the team
+- `ESCROW_ID`, `USDC_SAC`, the allowlisted settlement address
+- **Event** format (`deposit`/`claim`/`refund`) — backend reads these
+- Spec/ABI from the build
 
-## Fungsi
-| Fungsi | Auth | Catatan |
+## Functions
+| Function | Auth | Notes |
 |---|---|---|
-| `__constructor` | — (sekali, saat deploy) | set admin, token, anchor allowlist |
-| `deposit` | `sender.require_auth()` | transfer USDC→escrow; return `escrow_id` |
-| `claim` | tanpa auth (secret+allowlist) | dipanggil backend pasca-OTP |
-| `refund` | permissionless | hanya setelah expiry; dana ke sender |
+| `__constructor` | — (once, at deploy) | sets admin, token, anchor allowlist |
+| `deposit` | `sender.require_auth()` | transfers USDC→escrow; returns `escrow_id` |
+| `claim` | no auth (secret+allowlist) | called by backend post-OTP |
+| `refund` | permissionless | only after expiry; funds to sender |
 | `get_escrow` | view | |
-| `add/remove_anchor` | admin | kelola allowlist |
+| `add/remove_anchor` | admin | manage the allowlist |

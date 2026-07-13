@@ -1,6 +1,6 @@
 #![cfg(test)]
-//! Test skeleton — lengkapi tiap jalur (Spike + acceptance criteria §3).
-//! Jalankan: `cargo test`.
+//! Test skeleton — cover every path (Spike + acceptance criteria §3).
+//! Run: `cargo test`.
 
 use crate::{DataKey, EscrowContract, EscrowContractClient, EscrowStatus};
 use soroban_sdk::{
@@ -14,7 +14,7 @@ use soroban_sdk::{
 const TEST_BALANCE: i128 = 100_0000000;
 const TEST_AMOUNT: i128 = 50_0000000;
 
-/// Buat USDC test (SAC) + mint ke `to`.
+/// Create a test USDC (SAC) + mint to `to`.
 fn setup_token(env: &Env, admin: &Address, to: &Address, amount: i128) -> Address {
     let sac = env.register_stellar_asset_contract_v2(admin.clone());
     let token_admin = token::StellarAssetClient::new(env, &sac.address());
@@ -183,7 +183,7 @@ fn refund_after_expiry() {
 
     let id = client.deposit(&sender, &50_0000000, &hashlock, &recipient_commitment, &expiry);
 
-    env.ledger().set_timestamp(expiry + 1); // lewati expiry
+    env.ledger().set_timestamp(expiry + 1); // pass expiry
     client.refund(&id);
 
     assert_eq!(client.get_escrow(&id).status, EscrowStatus::Refunded);

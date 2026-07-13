@@ -1,15 +1,15 @@
 #![no_std]
 //! Sangu — Escrow contract (non-custodial link-claim + timelock refund).
 //!
-//! Interface = source of truth di docs/spesifikasi-teknis-pembagian-kerja.md §2.1.
-//! JANGAN ubah signature tanpa kesepakatan tim (mengikat backend & frontend).
+//! Interface = source of truth in docs/spesifikasi-teknis-pembagian-kerja.md §2.1.
+//! DO NOT change the signature without team agreement (binds backend & frontend).
 //!
-//! Model otorisasi:
-//! - deposit : sender.require_auth() (passkey smart wallet). Fee dibayar relayer (fee-bump).
-//! - claim   : TANPA require_auth. Keamanan = secret (hashlock) + destination ∈ allowlist.
-//! - refund  : permissionless. Dana HANYA balik ke sender.
+//! Authorization model:
+//! - deposit : sender.require_auth() (passkey smart wallet). Fee paid by relayer (fee-bump).
+//! - claim   : NO require_auth. Security = secret (hashlock) + destination ∈ allowlist.
+//! - refund  : permissionless. Funds go ONLY back to sender.
 //!
-//! NOTE: skeleton — verifikasi terhadap versi soroban-sdk kamu via `cargo test`.
+//! NOTE: skeleton — verify against your soroban-sdk version via `cargo test`.
 
 use soroban_sdk::{
     contract, contracterror, contractimpl, contracttype, panic_with_error, symbol_short, token,
@@ -49,10 +49,10 @@ pub enum EscrowStatus {
 #[derive(Clone)]
 pub struct Escrow {
     pub sender: Address,
-    pub amount: i128,           // USDC, 7 desimal (stroops)
-    pub hashlock: BytesN<32>, // sha256(secret) — secret dipegang backend
+    pub amount: i128,           // USDC, 7 decimals (stroops)
+    pub hashlock: BytesN<32>, // sha256(secret) — secret held by backend
     pub recipient_commitment: BytesN<32>, // HMAC(COMMITMENT_KEY, E164||nonce) server-side;
-                              // opaque, TIDAK dipakai auth on-chain.
+                              // opaque, NOT used for on-chain auth.
     pub expiry: u64,            // unix seconds (ledger timestamp)
     pub status: EscrowStatus,
 }
@@ -60,9 +60,9 @@ pub struct Escrow {
 #[contracttype]
 pub enum DataKey {
     Admin,
-    Token,       // Address SAC USDC
-    Anchors,     // Vec<Address> allowlist tujuan payout
-    Counter,     // u64 escrow id terakhir
+    Token,       // Address of the USDC SAC
+    Anchors,     // Vec<Address> payout destination allowlist
+    Counter,     // u64 last escrow id
     Escrow(u64), // escrow_id -> Escrow
 }
 
@@ -71,7 +71,7 @@ pub struct EscrowContract;
 
 #[contractimpl]
 impl EscrowContract {
-    /// Dipanggil atomik saat deploy.
+    /// Called atomically at deploy time.
     pub fn __constructor(
         env: Env,
         admin: Address,
@@ -86,7 +86,7 @@ impl EscrowContract {
         Self::refresh_instance_ttl(&env);
     }
 
-    /// PENGIRIM menyetor dana ke escrow. Return escrow_id.
+    /// SENDER deposits funds into escrow. Returns escrow_id.
     pub fn deposit(
         env: Env,
         sender: Address,
@@ -133,7 +133,7 @@ impl EscrowContract {
         id
     }
 
-    /// CLAIM oleh backend setelah OTP. `secret` membuka hashlock; `payout_destination` wajib ∈ allowlist.
+    /// CLAIM by backend after OTP. `secret` unlocks the hashlock; `payout_destination` must be ∈ allowlist.
     pub fn claim(env: Env, escrow_id: u64, secret: Bytes, payout_destination: Address) {
         Self::refresh_instance_ttl(&env);
         let key = DataKey::Escrow(escrow_id);
@@ -145,12 +145,12 @@ impl EscrowContract {
         if env.ledger().timestamp() >= escrow.expiry {
             panic_with_error!(&env, Error::Expired);
         }
-        // verifikasi secret
+        // verify secret
         let computed: BytesN<32> = env.crypto().sha256(&secret).into();
         if computed != escrow.hashlock {
             panic_with_error!(&env, Error::BadSecret);
         }
-        // destination harus anchor allowlist
+        // destination must be in the anchor allowlist
         let anchors: Vec<Address> = env.storage().instance().get(&DataKey::Anchors).unwrap();
         if !anchors.contains(&payout_destination) {
             panic_with_error!(&env, Error::DestinationNotAllowed);
@@ -171,7 +171,7 @@ impl EscrowContract {
         );
     }
 
-    /// REFUND — permissionless setelah expiry; dana hanya ke sender.
+    /// REFUND — permissionless after expiry; funds only go to sender.
     pub fn refund(env: Env, escrow_id: u64) {
         Self::refresh_instance_ttl(&env);
         let key = DataKey::Escrow(escrow_id);
@@ -239,7 +239,7 @@ impl EscrowContract {
             .publish((symbol_short!("upgrade"), admin), new_wasm_hash);
     }
 
-    // ── helper ──────────────────────────────────────────────────────────────
+    // ── helpers ─────────────────────────────────────────────────────────────
     fn refresh_instance_ttl(env: &Env) {
         env.storage()
             .instance()
