@@ -6,7 +6,7 @@ describe("transfer history API", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(getTransfers()).resolves.toEqual([]);
-    expect(fetchMock).toHaveBeenCalledWith("http://localhost:4000/api/transfers");
+    expect(fetchMock).toHaveBeenCalledWith("http://localhost:4000/api/transfers", expect.objectContaining({ headers: expect.any(Headers) }));
   });
 
   it("creates a recurring-remittance schedule", async () => {

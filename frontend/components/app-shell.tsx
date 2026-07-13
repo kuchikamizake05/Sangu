@@ -1,7 +1,9 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import { getAuthToken } from "@/lib/auth-session";
 import styles from "./app-shell.module.css";
 
 type AppShellProps = {
@@ -32,10 +34,19 @@ function Navigation({ className, pathname }: { className: string; pathname: stri
 
 export function AppShell({ children, mode = "sender" }: AppShellProps) {
   const pathname = usePathname() ?? "/";
+  const [sessionChecked, setSessionChecked] = useState(mode === "claim");
+
+  useEffect(() => {
+    if (mode === "claim") return;
+    if (!getAuthToken()) { window.location.assign(`/login?next=${encodeURIComponent(pathname)}`); return; }
+    setSessionChecked(true);
+  }, [mode, pathname]);
 
   if (mode === "claim") {
     return <main className={styles.claimPage} data-mode={mode}><header className={styles.claimHeader}><Brand /></header><div className={styles.claimContent}>{children}</div></main>;
   }
+
+  if (!sessionChecked) return null;
 
   return <main className={styles.page} data-mode={mode}>
     <aside className={styles.sidebar}>

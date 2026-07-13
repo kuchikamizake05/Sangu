@@ -5,7 +5,7 @@ import { saveOtp, consumeOtp, saveAuthOtp, consumeAuthOtp } from "./db.js";
 
 const OTP_PROVIDER = process.env.OTP_PROVIDER ?? "mock";
 const OTP_TTL_SEC = 5 * 60;
-const DEV_CODE = "123456"; // kode tetap untuk demo hackathon (mode mock saja)
+const DEV_CODE = "000000"; // kode tetap untuk demo hackathon (mode mock saja)
 
 function sha256(input: string): string {
   return createHash("sha256").update(input).digest("hex");

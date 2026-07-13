@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 test("sender sees the pending SEP-24 anchor status in transfer detail", async ({ page }) => {
+  await page.addInitScript(() => window.localStorage.setItem("sangu.sender-token", "e2e-session"));
   await page.route("**/api/transfers/anchor-transfer", async (route) => route.fulfill({ json: {
     transferId: "anchor-transfer",
     status: "PAID_OUT",

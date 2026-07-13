@@ -2,11 +2,19 @@ import { render, screen } from "@testing-library/react";
 import { usePathname } from "next/navigation";
 import { beforeEach, vi } from "vitest";
 import { AppShell } from "./app-shell";
+import { getAuthToken } from "@/lib/auth-session";
 
 vi.mock("next/navigation", () => ({ usePathname: vi.fn() }));
+vi.mock("@/lib/auth-session", () => ({ getAuthToken: vi.fn() }));
 
 describe("AppShell", () => {
-  beforeEach(() => vi.mocked(usePathname).mockReturnValue("/app"));
+  beforeEach(() => { vi.mocked(usePathname).mockReturnValue("/app"); vi.mocked(getAuthToken).mockReturnValue("session"); });
+
+  it("redirects a visitor without a session to login, while claim remains public", () => {
+    vi.mocked(getAuthToken).mockReturnValue(null);
+    render(<AppShell>Isi halaman</AppShell>);
+    expect(screen.queryByText("Isi halaman")).not.toBeInTheDocument();
+  });
 
   it("provides app navigation for desktop and mobile sender surfaces", () => {
     render(<AppShell>Isi halaman</AppShell>);

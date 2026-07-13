@@ -16,6 +16,7 @@ describe("LoginPage", () => {
     fireEvent.change(screen.getByRole("textbox", { name: "Kode OTP" }), { target: { value: "000000" } });
     fireEvent.click(screen.getByRole("button", { name: "Verifikasi dan lanjutkan" }));
     expect(await screen.findByText("Halo, Ayu")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Lanjut ke Beranda" })).toHaveAttribute("href", "/app");
     expect(document.body.textContent).not.toMatch(/wallet|address|XDR|seed phrase/i);
   });
 });

@@ -1,11 +1,27 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
+import { usePathname, useRouter } from "next/navigation";
 import SenderPage from "./page";
+import { getAuthToken } from "@/lib/auth-session";
+
+vi.mock("next/navigation", () => ({ usePathname: vi.fn(), useRouter: vi.fn() }));
+vi.mock("@/lib/auth-session", () => ({ getAuthToken: vi.fn() }));
 
 describe("SenderPage", () => {
-  it("keeps the dashboard focused and sends transfer actions to the canonical composer route", () => {
+  const replace = vi.fn();
+  beforeEach(() => { replace.mockReset(); vi.mocked(usePathname).mockReturnValue("/app"); vi.mocked(useRouter).mockReturnValue({ replace } as never); });
+
+  it("sends unauthenticated visitors to login before rendering the app", () => {
+    vi.mocked(getAuthToken).mockReturnValue(null);
     render(<SenderPage />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Siapkan akses perangkat" }));
+    expect(replace).toHaveBeenCalledWith("/login?next=%2Fapp");
+    expect(screen.queryByText("Saldo tersedia")).not.toBeInTheDocument();
+  });
+
+  it("keeps the dashboard focused for an authenticated sender", () => {
+    vi.mocked(getAuthToken).mockReturnValue("sender-session");
+    render(<SenderPage />);
+
     expect(screen.getByText("Saldo tersedia")).toBeInTheDocument();
     expect(screen.getByText("Kiriman terbaru")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Lihat semua riwayat" })).toHaveAttribute("href", "/transfers");
