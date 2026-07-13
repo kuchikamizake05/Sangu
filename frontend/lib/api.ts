@@ -33,7 +33,10 @@ export async function requestAuthOtp(phone: string): Promise<{ sent: true }> {
 
 export async function verifyAuthOtp(phone: string, code: string, name?: string): Promise<{ token: string; sender: AuthSender }> {
   const res = await fetch(`${BASE}/api/auth/otp/verify`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ phone, code, ...(name ? { name } : {}) }) });
-  if (!res.ok) throw new Error("Kode tidak cocok atau sudah kedaluwarsa.");
+  if (!res.ok) {
+    const body = await res.json().catch(() => null) as { error?: { message?: string } } | null;
+    throw new Error(body?.error?.message ?? "Kode tidak cocok atau sudah kedaluwarsa.");
+  }
   return res.json();
 }
 
