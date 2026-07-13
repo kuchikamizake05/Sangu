@@ -10,18 +10,18 @@ type AppShellProps = {
 };
 
 const navigation = [
-  { href: "/", label: "Beranda" },
+  { href: "/app", label: "Beranda" },
   { href: "/transfers", label: "Riwayat" },
   { href: "/recurring", label: "Sangu Bulanan" },
   { href: "/account", label: "Akun" },
 ];
 
 function Brand() {
-  return <a className={styles.brand} href="/" aria-label="Sangu beranda">sangu<span>·</span></a>;
+  return <a className={styles.brand} href="/app" aria-label="Sangu beranda">sangu<span>·</span></a>;
 }
 
 function isCurrentPath(pathname: string, href: string) {
-  return href === "/" ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
+  return pathname === href || pathname.startsWith(`${href}/`);
 }
 
 function Navigation({ className, pathname }: { className: string; pathname: string }) {

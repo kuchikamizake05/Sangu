@@ -1,16 +1,15 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import SenderPage from "./page";
+import { render, screen } from "@testing-library/react";
+import LandingPage from "./page";
 
-describe("SenderPage", () => {
-  it("keeps the dashboard focused and sends transfer actions to the canonical composer route", () => {
-    render(<SenderPage />);
+describe("LandingPage", () => {
+  it("renders the public landing page and routes visitors into the app", () => {
+    render(<LandingPage />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Siapkan akses perangkat" }));
-    expect(screen.getByText("Saldo tersedia")).toBeInTheDocument();
-    expect(screen.getByText("Kiriman terbaru")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Lihat semua riwayat" })).toHaveAttribute("href", "/transfers");
-    expect(screen.getAllByRole("link", { name: "Kirim uang" }).every((link) => link.getAttribute("href") === "/send")).toBe(true);
-    expect(screen.queryByRole("button", { name: "Kirim uang" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "Langkah 1 dari 4" })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(/Sangu pulang untuk/);
+    expect(screen.getByRole("link", { name: "Buka app" })).toHaveAttribute("href", "/app");
+    expect(screen.getAllByRole("link", { name: "Buka akun gratis" }).every((link) => link.getAttribute("href") === "/app")).toBe(true);
+    expect(screen.getByRole("heading", { name: "Kurs asli, bukan kurs-kursan." })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Mata uang asal" })).toBeInTheDocument();
+    expect(screen.getByRole("contentinfo")).toHaveTextContent("© 2026 Sangu");
   });
 });
