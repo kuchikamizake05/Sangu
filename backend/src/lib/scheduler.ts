@@ -11,6 +11,7 @@ import {
   updateTransfer,
   listRecurringDue,
   markRecurringTriggered,
+  recordTransferEvent,
 } from "./db.js";
 import { isOnchainEnabled, refund } from "../stellar/escrow.js";
 import { isAnchorEnabled, getWithdrawInfo, payAnchorWithMemo } from "../anchor/sep24.js";
@@ -34,9 +35,11 @@ async function keeperTick(log: FastifyBaseLogger) {
           const { txHash } = await refund(t.escrowId);
           log.info({ transferId: t.transferId, txHash }, "keeper: refund on-chain sukses");
           await updateTransfer(t.transferId, { status: "REFUNDED" });
+          await recordTransferEvent(t.transferId, "REFUNDED");
         } else {
           // demo-mode / belum sempat deposit on-chain
           await updateTransfer(t.transferId, { status: t.escrowId ? "REFUNDED" : "EXPIRED" });
+          await recordTransferEvent(t.transferId, t.escrowId ? "REFUNDED" : "EXPIRED");
           log.info({ transferId: t.transferId }, "keeper: transfer expired (simulasi)");
         }
       } catch (err) {

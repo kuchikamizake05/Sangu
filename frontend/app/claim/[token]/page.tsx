@@ -1,64 +1,120 @@
 "use client";
-// Halaman Claim penerima (skeleton) — TANPA app. TODO: OTP request/verify, fallback SMS.
-// Prinsip: tombol besar, teks minim, Bahasa Indonesia, jalan di HP murah.
+
 import { use, useEffect, useState } from "react";
-import { getClaim, payout, type PayoutMethod } from "@/lib/api";
+import { AppShell } from "@/components/app-shell";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Field, TextInput } from "@/components/ui/field";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { getClaim, payout, requestOtp, verifyOtp, type ClaimInfo, type PayoutMethod, type PayoutResponse } from "@/lib/api";
+
+type Screen = "summary" | "otp" | "payout" | "result";
+const choices: Array<{ value: PayoutMethod; title: string; detail: string; needsAccount?: boolean }> = [
+  { value: "dana", title: "DANA", detail: "Masuk ke nomor DANA penerima", needsAccount: true },
+  { value: "gopay", title: "GoPay", detail: "Masuk ke nomor GoPay penerima", needsAccount: true },
+  { value: "bank", title: "Transfer bank", detail: "Masuk ke rekening pilihanmu", needsAccount: true },
+  { value: "cash", title: "Ambil tunai di gerai", detail: "Cukup tunjukkan kode dan KTP" },
+];
 
 export default function ClaimPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = use(params);
-  const [info, setInfo] = useState<any>(null);
-  const [result, setResult] = useState<any>(null);
+  const [info, setInfo] = useState<ClaimInfo | null>(null);
+  const [screen, setScreen] = useState<Screen>("summary");
+  const [otp, setOtp] = useState("");
+  const [method, setMethod] = useState<PayoutMethod>("cash");
+  const [account, setAccount] = useState("");
+  const [result, setResult] = useState<PayoutResponse | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [resendSeconds, setResendSeconds] = useState(0);
 
+  useEffect(() => { getClaim(token).then(setInfo).catch(() => setError("Link ini tidak dapat dibuka. Periksa lagi pesan yang kamu terima.")); }, [token]);
   useEffect(() => {
-    getClaim(token).then(setInfo);
-  }, [token]);
+    if (resendSeconds === 0) return;
+    const timer = window.setInterval(() => setResendSeconds((seconds) => Math.max(0, seconds - 1)), 1000);
+    return () => window.clearInterval(timer);
+  }, [resendSeconds]);
 
-  async function cair(method: PayoutMethod) {
-    // TODO: OTP dulu sebelum payout
-    setResult(await payout(token, method));
+  async function beginOtp() {
+    setBusy(true); setError(null);
+    try { await requestOtp(token); setScreen("otp"); setResendSeconds(60); }
+    catch (reason) { setError(reason instanceof Error ? reason.message : "Kode OTP belum dapat dikirim."); }
+    finally { setBusy(false); }
   }
 
-  if (!info) return <main style={{ padding: 24 }}>Memuat…</main>;
+  async function confirmOtp() {
+    if (!/^\d{6}$/.test(otp)) { setError("Masukkan 6 angka dari SMS."); return; }
+    setBusy(true); setError(null);
+    try { await verifyOtp(token, otp); setScreen("payout"); }
+    catch (reason) { setError(reason instanceof Error ? reason.message : "Kode OTP tidak cocok."); }
+    finally { setBusy(false); }
+  }
 
-  return (
-    <main style={{ maxWidth: 420, margin: "0 auto", padding: 24, textAlign: "center" }}>
-      <p style={{ fontSize: 18 }}>{info.senderName} mengirimimu</p>
-      <h1 style={{ fontSize: 40 }}>Rp {Number(info.amountIdr).toLocaleString("id-ID")}</h1>
+  async function claim() {
+    const selected = choices.find((item) => item.value === method);
+    if (selected?.needsAccount && !account.trim()) { setError("Masukkan nomor tujuan pencairan."); return; }
+    setBusy(true); setError(null);
+    try { setResult(await payout(token, method, account ? { account } : {})); setScreen("result"); }
+    catch (reason) { setError(reason instanceof Error ? reason.message : "Pencairan belum dapat diproses."); }
+    finally { setBusy(false); }
+  }
 
-      {!result ? (
-        <>
-          <p style={{ opacity: 0.7 }}>Pilih cara mencairkan:</p>
-          <Btn onClick={() => cair("dana")}>DANA</Btn>
-          <Btn onClick={() => cair("gopay")}>GoPay</Btn>
-          <Btn onClick={() => cair("bank")}>Transfer Bank</Btn>
-          <Btn onClick={() => cair("cash")}>⭐ Tunai di Gerai</Btn>
-        </>
-      ) : (
-        <div style={{ marginTop: 24, padding: 16, background: "#141b33", borderRadius: 8 }}>
-          {result.cashCode ? (
-            <>
-              <p>Tunjukkan kode ini di gerai:</p>
-              <h2>{result.cashCode}</h2>
-              <p style={{ opacity: 0.7 }}>{result.instructions}</p>
-            </>
-          ) : (
-            <p>{result.instructions}</p>
-          )}
-          {result.simulatedPayout && (
-            <p style={{ fontSize: 11, opacity: 0.6, marginTop: 8 }}>
-              Demo: withdrawal SEP-24 nyata; settlement IDR/tunai disimulasikan di layer anchor.
-            </p>
-          )}
-        </div>
-      )}
-    </main>
-  );
+  if (!info) return <AppShell mode="claim"><Card className="mx-auto max-w-md text-center text-[#676767]">{error ?? "Memuat kirimanmu…"}</Card></AppShell>;
+  if (info.status !== "PENDING") return <ClosedClaim status={info.status} />;
+  const selected = choices.find((item) => item.value === method)!;
+
+  return <AppShell mode="claim"><Card className="mx-auto max-w-md !p-6 sm:!p-8"><StatusBadge status={info.status} />
+    {screen === "summary" && <section className="mt-7 text-center"><p className="text-lg text-[#676767]">{info.senderName} mengirimimu</p><h1 className="mt-2 text-5xl font-extrabold tracking-[-.07em] sm:text-6xl">Rp {Number(info.amountIdr).toLocaleString("id-ID")}</h1><p className="mx-auto mt-5 max-w-xs text-sm text-[#676767]">Cairkan dengan aman. Kamu tidak perlu punya akun Sangu atau dompet kripto.</p><Button className="mt-8" fullWidth onClick={beginOtp} disabled={busy}>{busy ? "Mengirim kode…" : "Cairkan sekarang"}</Button></section>}
+    {screen === "otp" && <OtpScreen otp={otp} busy={busy} resendSeconds={resendSeconds} onOtpChange={setOtp} onConfirm={confirmOtp} onResend={beginOtp} />}
+    {screen === "payout" && <PayoutScreen account={account} busy={busy} method={method} selected={selected} onAccountChange={setAccount} onClaim={claim} onMethodChange={setMethod} />}
+    {screen === "result" && result && <ResultScreen amountIdr={info.amountIdr} method={method} result={result} />}
+    {error && <p className="mt-5 text-sm font-semibold text-[#c72307]" role="alert">{error}</p>}
+  </Card></AppShell>;
 }
 
-function Btn({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
-  return (
-    <button onClick={onClick} style={{ display: "block", width: "100%", padding: 16, margin: "10px 0", fontSize: 18 }}>
-      {children}
-    </button>
-  );
+function ClosedClaim({ status }: { status: Exclude<ClaimInfo["status"], "PENDING"> }) {
+  const message = { CLAIMED: "Pencairan sedang diproses.", PAID_OUT: "Uang ini sudah dicairkan.", REFUNDED: "Dana kiriman telah dikembalikan.", EXPIRED: "Transfer ini sudah kedaluwarsa." }[status];
+  return <AppShell mode="claim"><Card className="mx-auto max-w-md !p-6 text-center sm:!p-8"><StatusBadge status={status} /><h1 className="mt-6 text-3xl font-extrabold tracking-[-.05em]">{message}</h1><p className="mx-auto mt-3 max-w-xs text-sm text-[#676767]">Jika kamu membutuhkan bantuan terkait kiriman ini, hubungi pengirim atau tim Sangu.</p></Card></AppShell>;
+}
+
+function OtpScreen({ otp, busy, resendSeconds, onOtpChange, onConfirm, onResend }: { otp: string; busy: boolean; resendSeconds: number; onOtpChange: (value: string) => void; onConfirm: () => void; onResend: () => void }) {
+  const isCoolingDown = resendSeconds > 0;
+  return <section className="mt-7"><p className="text-xs font-extrabold tracking-[.15em] text-[#9e1d0e]">LANGKAH KEAMANAN</p><h1 className="mt-2 text-3xl font-extrabold tracking-[-.05em]">Masukkan kode SMS</h1><p className="mt-2 text-sm text-[#676767]">Kode 6 angka sudah dikirim ke nomor penerima yang terdaftar.</p><div className="mt-7"><Field label="Kode OTP"><TextInput aria-label="Kode OTP" inputMode="numeric" maxLength={6} placeholder="123456" value={otp} onChange={(event) => onOtpChange(event.target.value.replace(/\D/g, ""))} /></Field></div><Button className="mt-5" fullWidth onClick={onConfirm} disabled={busy}>{busy ? "Memverifikasi…" : "Verifikasi kode"}</Button>{isCoolingDown && <p className="mt-3 text-center text-xs font-semibold text-[#676767]" role="status" aria-live="polite">Kirim ulang tersedia dalam {resendSeconds} detik.</p>}<Button className="mt-2" fullWidth variant="ghost" onClick={onResend} disabled={busy || isCoolingDown}>{isCoolingDown ? `Kirim ulang dalam ${resendSeconds} dtk` : "Kirim ulang kode"}</Button></section>;
+}
+
+function PayoutScreen({ account, busy, method, selected, onAccountChange, onClaim, onMethodChange }: { account: string; busy: boolean; method: PayoutMethod; selected: (typeof choices)[number]; onAccountChange: (value: string) => void; onClaim: () => void; onMethodChange: (method: PayoutMethod) => void }) {
+  return <section className="mt-7"><p className="text-xs font-extrabold tracking-[.15em] text-[#9e1d0e]">OTP TERVERIFIKASI</p><h1 className="mt-2 text-3xl font-extrabold tracking-[-.05em]">Pilih cara mencairkan</h1><div className="mt-6 grid gap-3" role="group" aria-label="Metode pencairan">{choices.map((choice) => <button key={choice.value} onClick={() => onMethodChange(choice.value)} aria-pressed={method === choice.value} className={`rounded-2xl border p-4 text-left transition ${method === choice.value ? "border-[#ff5113] bg-[#ffe7d4]" : "border-[#ededed] hover:border-[#080808]"}`}><strong className="block">{choice.value === "cash" ? "☆ " : ""}{choice.title}</strong><span className="mt-1 block text-sm text-[#676767]">{choice.detail}</span></button>)}</div>{selected.needsAccount && <div className="mt-5"><Field label={method === "bank" ? "Nomor rekening" : `Nomor ${selected.title}`}><TextInput inputMode="numeric" value={account} onChange={(event) => onAccountChange(event.target.value)} placeholder="Masukkan nomor tujuan" /></Field></div>}<Button className="mt-6" fullWidth onClick={onClaim} disabled={busy}>{busy ? "Memproses pencairan…" : "Cairkan uang"}</Button></section>;
+}
+
+function ResultScreen({ amountIdr, method, result }: { amountIdr: string; method: PayoutMethod; result: PayoutResponse }) {
+  const [copyStatus, setCopyStatus] = useState<"success" | "error" | null>(null);
+  const isAnchorFlow = Boolean(result.interactiveUrl);
+
+  async function copyCashCode() {
+    try {
+      if (!navigator.clipboard?.writeText || !result.cashCode) throw new Error("Clipboard tidak tersedia");
+      await navigator.clipboard.writeText(result.cashCode);
+      setCopyStatus("success");
+    } catch {
+      setCopyStatus("error");
+    }
+  }
+
+  const methodLabel = choices.find((choice) => choice.value === method)?.title ?? method;
+  return <section className="mt-7 text-center" aria-live="polite">
+    <span className={`inline-flex size-12 items-center justify-center rounded-full text-xl font-extrabold ${isAnchorFlow ? "bg-[#fff4eb] text-[#9e1d0e]" : "bg-[#eaf8e8] text-[#278f35]"}`}>{isAnchorFlow ? "→" : "✓"}</span>
+    {result.cashCode ? <>
+      <p className="mt-5 text-xs font-extrabold tracking-[.15em] text-[#9e1d0e]">KODE PENARIKAN</p>
+      <h1 className="mt-2 text-3xl font-extrabold tracking-[.08em]">{result.cashCode}</h1>
+      <Button className="mt-4" variant="secondary" onClick={copyCashCode}>Salin kode</Button>
+      {copyStatus && <p className={`mt-3 text-sm font-semibold ${copyStatus === "success" ? "text-[#278f35]" : "text-[#c72307]"}`} role="status">{copyStatus === "success" ? "Kode penarikan disalin." : "Kode belum dapat disalin. Salin manual kode di atas."}</p>}
+    </> : <>
+      <h1 className="mt-5 text-3xl font-extrabold tracking-[-.05em]">{isAnchorFlow ? "Pencairan sedang diproses" : "Pencairan diproses"}</h1>
+      <p className="mt-3 text-sm font-semibold text-[#080808]">Rp {Number(amountIdr).toLocaleString("id-ID")} melalui {methodLabel}</p>
+    </>}
+    <p className="mx-auto mt-3 max-w-xs text-sm text-[#676767]">{result.instructions ?? "Kami sedang memproses pencairanmu."}</p>
+    {result.interactiveUrl && <a className="mt-5 inline-flex min-h-11 items-center justify-center rounded-xl bg-[#080808] px-5 py-3 text-sm font-bold text-white hover:bg-[#292929]" href={result.interactiveUrl} target="_blank" rel="noopener noreferrer">Lanjutkan verifikasi pencairan</a>}
+    {result.anchorTxId && <p className="mt-4 rounded-xl bg-[#fcfcfc] px-3 py-2 text-xs font-semibold text-[#676767]">Referensi anchor: {result.anchorTxId}</p>}
+    {result.simulatedPayout && <p className="mt-4 rounded-xl bg-[#fff4eb] p-3 text-xs text-[#9e1d0e]">Demo: pencairan akhir masih disimulasikan oleh anchor.</p>}
+  </section>;
 }

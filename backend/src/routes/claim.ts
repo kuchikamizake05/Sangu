@@ -10,6 +10,7 @@ import type { FastifyInstance, FastifyReply } from "fastify";
 import type { ClaimInfo, PayoutRequest, PayoutResponse, TransferStatus } from "../lib/types.js";
 import {
   getTransferByToken,
+  recordTransferEvent,
   updateTransfer,
   createClaimSession,
   validateClaimSession,
@@ -99,6 +100,7 @@ export default async function claimRoutes(app: FastifyInstance) {
       ({ txHash: claimTxHash } = await escrowClaim(t.escrowId, secret, settlementAddress()));
     }
     await updateTransfer(t.transferId, { status: "CLAIMED", claimTxHash });
+    await recordTransferEvent(t.transferId, "CLAIMED");
 
     // 2) jembatan SEP-24: mulai withdraw interaktif. Anchor BARU memberi akun tujuan +
     //    memo setelah penerima menyelesaikan interactive URL — jadi pembayaran Classic
@@ -154,6 +156,7 @@ export default async function claimRoutes(app: FastifyInstance) {
         crypto.randomInt(1000, 9999).toString();
     }
     await updateTransfer(t.transferId, { status: "PAID_OUT", payoutMethod, cashCode });
+    await recordTransferEvent(t.transferId, "PAID_OUT");
 
     const res: PayoutResponse = {
       status: "PAID_OUT",

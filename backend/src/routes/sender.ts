@@ -22,9 +22,15 @@ import {
 import {
   createTransfer,
   getTransferById,
+  listTransferEvents,
+  recordTransferEvent,
   updateTransfer,
   listTransfers,
   createRecurring,
+  deleteRecurring,
+  getRecurringById,
+  listRecurring,
+  updateRecurring,
 } from "../lib/db.js";
 import type {
   Corridor,
@@ -39,6 +45,13 @@ const BASE = process.env.PUBLIC_BASE_URL ?? "http://localhost:3000";
 const EXPIRY_SECONDS = Number(process.env.EXPIRY_SECONDS ?? 72 * 3600);
 
 const E164 = /^\+[1-9]\d{6,14}$/;
+
+function nextRunAt(dayOfMonth: number): string {
+  const now = new Date();
+  let candidate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), dayOfMonth));
+  if (candidate.getTime() <= now.getTime()) candidate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, dayOfMonth));
+  return candidate.toISOString();
+}
 
 function badRequest(reply: { code: (n: number) => unknown }, message: string) {
   reply.code(400);
@@ -114,6 +127,7 @@ export default async function senderRoutes(app: FastifyInstance) {
       payoutMethod: null,
       cashCode: null,
     });
+    await recordTransferEvent(transferId, "CREATED");
 
     const res: PrepareSendResponse = { transferId, unsignedXDR, quote, expiry };
     return res;
@@ -138,6 +152,7 @@ export default async function senderRoutes(app: FastifyInstance) {
       escrowId = "SIM-" + crypto.randomBytes(4).toString("hex");
     }
     await updateTransfer(transfer.transferId, { escrowId, depositTxHash });
+    await recordTransferEvent(transfer.transferId, "DEPOSITED");
 
     const res: SubmitSendResponse = {
       transferId: transfer.transferId,
@@ -186,5 +201,84 @@ export default async function senderRoutes(app: FastifyInstance) {
       dayOfMonth: day,
     });
     return { recurringId };
+  });
+
+  app.get("/api/recurring", async () =>
+    (await listRecurring()).map((recurring) => ({
+      recurringId: recurring.recurringId,
+      recipientMasked: maskPhone(recurring.recipientPhone),
+      corridor: recurring.corridor,
+      amountForeign: recurring.amountForeign,
+      dayOfMonth: recurring.dayOfMonth,
+      status: recurring.status,
+      nextRunAt: nextRunAt(recurring.dayOfMonth),
+    }))
+  );
+
+  app.get("/api/transfers/:transferId", async (req, reply) => {
+    const { transferId } = req.params as { transferId: string };
+    const transfer = await getTransferById(transferId);
+    if (!transfer) { reply.code(404); return { error: { code: "NOT_FOUND", message: "transfer tidak ditemukan" } }; }
+    return {
+      transferId: transfer.transferId,
+      status: transfer.status,
+      amount: transfer.amountForeign,
+      corridor: transfer.corridor,
+      amountIdr: transfer.amountIdr,
+      recipientMasked: maskPhone(transfer.phoneE164),
+      createdAt: new Date(transfer.createdAt * 1000).toISOString(),
+      events: (await listTransferEvents(transfer.transferId)).map((event) => ({ type: event.type, occurredAt: new Date(event.occurredAt * 1000).toISOString() })),
+      anchor: transfer.anchorTxId ? {
+        txId: transfer.anchorTxId,
+        status: transfer.anchorStatus,
+        interactiveUrl: transfer.anchorInteractiveUrl,
+        paymentTxHash: transfer.anchorPaymentTxHash,
+      } : null,
+    };
+  });
+
+  app.patch("/api/recurring/:recurringId", async (req, reply) => {
+    const { recurringId } = req.params as { recurringId: string };
+    const existing = await getRecurringById(recurringId);
+    if (!existing) { reply.code(404); return { error: { code: "NOT_FOUND", message: "jadwal tidak ditemukan" } }; }
+    const body = req.body as Partial<{ recipientPhone: string; corridor: Corridor; amountForeign: string; dayOfMonth: number }>;
+    const patch: Partial<{ recipientPhone: string; corridor: Corridor; amountForeign: string; dayOfMonth: number }> = {};
+    if (body.recipientPhone !== undefined) {
+      if (!E164.test(body.recipientPhone)) return badRequest(reply, "recipientPhone harus format E.164");
+      patch.recipientPhone = body.recipientPhone;
+    }
+    if (body.corridor !== undefined) {
+      if (body.corridor !== "MY" && body.corridor !== "HK") return badRequest(reply, "corridor harus MY|HK");
+      patch.corridor = body.corridor;
+    }
+    if (body.amountForeign !== undefined) {
+      if (!Number.isFinite(Number(body.amountForeign)) || Number(body.amountForeign) <= 0) return badRequest(reply, "amountForeign tidak valid");
+      patch.amountForeign = body.amountForeign;
+    }
+    if (body.dayOfMonth !== undefined) {
+      if (!Number.isInteger(body.dayOfMonth) || body.dayOfMonth < 1 || body.dayOfMonth > 28) return badRequest(reply, "dayOfMonth harus 1..28");
+      patch.dayOfMonth = body.dayOfMonth;
+    }
+    if (Object.keys(patch).length === 0) return badRequest(reply, "tidak ada perubahan yang valid");
+    await updateRecurring(recurringId, patch);
+    const updated = { ...existing, ...patch };
+    return { recurringId, recipientMasked: maskPhone(updated.recipientPhone), corridor: updated.corridor, amountForeign: updated.amountForeign, dayOfMonth: updated.dayOfMonth, status: updated.status, nextRunAt: nextRunAt(updated.dayOfMonth) };
+  });
+
+  for (const action of ["pause", "resume"] as const) {
+    app.post(`/api/recurring/:recurringId/${action}`, async (req, reply) => {
+      const { recurringId } = req.params as { recurringId: string };
+      if (!await getRecurringById(recurringId)) { reply.code(404); return { error: { code: "NOT_FOUND", message: "jadwal tidak ditemukan" } }; }
+      const status = action === "pause" ? "PAUSED" : "ACTIVE";
+      await updateRecurring(recurringId, { status });
+      return { recurringId, status };
+    });
+  }
+
+  app.delete("/api/recurring/:recurringId", async (req, reply) => {
+    const { recurringId } = req.params as { recurringId: string };
+    if (!await getRecurringById(recurringId)) { reply.code(404); return { error: { code: "NOT_FOUND", message: "jadwal tidak ditemukan" } }; }
+    await deleteRecurring(recurringId);
+    reply.code(204);
   });
 }

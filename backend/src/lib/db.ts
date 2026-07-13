@@ -4,6 +4,12 @@ import pg from "pg";
 import { randomUUID } from "node:crypto";
 
 export type TransferStatus = "PENDING" | "CLAIMED" | "PAID_OUT" | "REFUNDED" | "EXPIRED";
+export type TransferEventType = "CREATED" | "DEPOSITED" | "CLAIMED" | "PAID_OUT" | "REFUNDED" | "EXPIRED";
+
+export interface TransferEvent {
+  type: TransferEventType;
+  occurredAt: number;
+}
 
 export interface TransferRecord {
   transferId: string;
@@ -43,6 +49,7 @@ export interface RecurringRecord {
   corridor: "MY" | "HK";
   amountForeign: string;
   dayOfMonth: number;
+  status: "ACTIVE" | "PAUSED";
   createdAt: number;
   lastTriggeredAt: number | null;
 }
@@ -121,9 +128,19 @@ const SCHEMA_SQL = `
     "corridor" TEXT NOT NULL,
     "amountForeign" TEXT NOT NULL,
     "dayOfMonth" INTEGER NOT NULL,
+    "status" TEXT NOT NULL DEFAULT 'ACTIVE',
     "createdAt" BIGINT NOT NULL,
     "lastTriggeredAt" BIGINT
   );
+
+  CREATE TABLE IF NOT EXISTS transfer_events (
+    "transferId" TEXT NOT NULL REFERENCES transfers("transferId") ON DELETE CASCADE,
+    "type" TEXT NOT NULL,
+    "occurredAt" BIGINT NOT NULL,
+    PRIMARY KEY ("transferId", "type")
+  );
+
+  ALTER TABLE recurring ADD COLUMN IF NOT EXISTS "status" TEXT NOT NULL DEFAULT 'ACTIVE';
 `;
 
 let schemaReady: Promise<void> | null = null;
@@ -132,7 +149,7 @@ function ensureSchema(): Promise<void> {
   if (!schemaReady) {
     schemaReady = pool.query(SCHEMA_SQL).then(() => undefined);
   }
-  return schemaReady;
+  return schemaReady!;
 }
 
 async function query(text: string, values: unknown[] = []): Promise<pg.QueryResult> {
@@ -342,11 +359,11 @@ export async function validateClaimSession(token: string, session: string): Prom
 }
 
 // ── Sangu Bulanan (recurring) ──
-export async function createRecurring(r: Omit<RecurringRecord, "createdAt" | "lastTriggeredAt">): Promise<void> {
+export async function createRecurring(r: Omit<RecurringRecord, "createdAt" | "lastTriggeredAt" | "status">): Promise<void> {
   await query(
     `
-    INSERT INTO recurring ("recurringId", "recipientPhone", "corridor", "amountForeign", "dayOfMonth", "createdAt", "lastTriggeredAt")
-    VALUES ($1, $2, $3, $4, $5, $6, NULL)
+    INSERT INTO recurring ("recurringId", "recipientPhone", "corridor", "amountForeign", "dayOfMonth", "status", "createdAt", "lastTriggeredAt")
+    VALUES ($1, $2, $3, $4, $5, 'ACTIVE', $6, NULL)
   `,
     [r.recurringId, r.recipientPhone, r.corridor, r.amountForeign, r.dayOfMonth, nowSec()],
   );
@@ -359,6 +376,7 @@ function rowToRecurring(row: Record<string, unknown>): RecurringRecord {
     corridor: row.corridor as "MY" | "HK",
     amountForeign: row.amountForeign as string,
     dayOfMonth: Number(row.dayOfMonth),
+    status: row.status as "ACTIVE" | "PAUSED",
     createdAt: Number(row.createdAt),
     lastTriggeredAt: row.lastTriggeredAt == null ? null : Number(row.lastTriggeredAt),
   };
@@ -369,12 +387,42 @@ export async function listRecurring(): Promise<RecurringRecord[]> {
   return res.rows.map(rowToRecurring);
 }
 
+export async function recordTransferEvent(transferId: string, type: TransferEventType): Promise<void> {
+  await query(
+    `INSERT INTO transfer_events ("transferId", "type", "occurredAt") VALUES ($1, $2, $3) ON CONFLICT ("transferId", "type") DO NOTHING`,
+    [transferId, type, nowSec()],
+  );
+}
+
+export async function listTransferEvents(transferId: string): Promise<TransferEvent[]> {
+  const res = await query(`SELECT "type", "occurredAt" FROM transfer_events WHERE "transferId" = $1 ORDER BY "occurredAt" ASC`, [transferId]);
+  return res.rows.map((row) => ({ type: row.type as TransferEventType, occurredAt: Number(row.occurredAt) }));
+}
+
+export async function getRecurringById(recurringId: string): Promise<RecurringRecord | undefined> {
+  const res = await query(`SELECT * FROM recurring WHERE "recurringId" = $1`, [recurringId]);
+  return res.rows[0] ? rowToRecurring(res.rows[0]) : undefined;
+}
+
+const RECURRING_UPDATABLE_COLUMNS = new Set(["recipientPhone", "corridor", "amountForeign", "dayOfMonth", "status"]);
+
+export async function updateRecurring(recurringId: string, patch: Partial<Pick<RecurringRecord, "recipientPhone" | "corridor" | "amountForeign" | "dayOfMonth" | "status">>): Promise<void> {
+  const keys = Object.keys(patch).filter((key) => RECURRING_UPDATABLE_COLUMNS.has(key));
+  if (keys.length === 0) return;
+  const values = keys.map((key) => (patch as Record<string, unknown>)[key]);
+  await query(`UPDATE recurring SET ${keys.map((key, index) => `"${key}" = $${index + 1}`).join(", ")} WHERE "recurringId" = $${keys.length + 1}`, [...values, recurringId]);
+}
+
+export async function deleteRecurring(recurringId: string): Promise<void> {
+  await query(`DELETE FROM recurring WHERE "recurringId" = $1`, [recurringId]);
+}
+
 const TWENTY_DAYS_SEC = 20 * 24 * 60 * 60;
 
 export async function listRecurringDue(dayOfMonth: number, nowSecArg: number): Promise<RecurringRecord[]> {
   const cutoff = nowSecArg - TWENTY_DAYS_SEC;
   const res = await query(
-    `SELECT * FROM recurring WHERE "dayOfMonth" = $1 AND ("lastTriggeredAt" IS NULL OR "lastTriggeredAt" < $2)`,
+    `SELECT * FROM recurring WHERE "status" = 'ACTIVE' AND "dayOfMonth" = $1 AND ("lastTriggeredAt" IS NULL OR "lastTriggeredAt" < $2)`,
     [dayOfMonth, cutoff],
   );
   return res.rows.map(rowToRecurring);
