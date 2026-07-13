@@ -17,7 +17,8 @@ import { isOnchainEnabled, refund } from "../stellar/escrow.js";
 import { isAnchorEnabled, getWithdrawInfo, payAnchorWithMemo } from "../anchor/sep24.js";
 
 const KEEPER_INTERVAL_MS = Number(process.env.KEEPER_INTERVAL_MS ?? 30_000);
-const RECURRING_INTERVAL_MS = 60 * 60 * 1000; // cek jam-jaman cukup untuk jadwal harian
+// Cek jam-jaman cukup untuk jadwal harian; env untuk mempercepat saat demo/uji.
+const RECURRING_INTERVAL_MS = Number(process.env.RECURRING_INTERVAL_MS ?? 60 * 60 * 1000);
 const ANCHOR_POLL_INTERVAL_MS = Number(process.env.ANCHOR_POLL_INTERVAL_MS ?? 20_000);
 
 let timers: NodeJS.Timeout[] = [];

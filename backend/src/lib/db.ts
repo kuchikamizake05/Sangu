@@ -26,6 +26,7 @@ export interface TransferRecord {
   commitmentHex: string;
   nonceHex: string;
   phoneE164: string;
+  senderId: string | null; // pemilik transfer — null hanya untuk data lama pra-auth
   senderAddress: string | null;
   senderName: string;
   expiry: number;
@@ -43,15 +44,31 @@ export interface TransferRecord {
   updatedAt: number;
 }
 
+// Profil pengirim (auth) — lihat docs/auth-pengirim-pembagian-kerja-fe-be.md §3.1.
+// Nomor HP dicari via HMAC (PHONE_HMAC_KEY); plaintext disimpan hanya untuk kirim OTP.
+export interface SenderRecord {
+  senderId: string;
+  phoneHmac: string;
+  phoneE164: string;
+  name: string;
+  passkeyCredentialId: string | null; // base64url credential id WebAuthn
+  passkeyPublicKey: string | null; // base64url COSE public key
+  passkeyCounter: number;
+  walletAddress: string | null; // alamat smart wallet passkey (C.../G...)
+  createdAt: number;
+}
+
 export interface RecurringRecord {
   recurringId: string;
+  senderId: string | null;
   recipientPhone: string;
   corridor: "MY" | "HK";
   amountForeign: string;
   dayOfMonth: number;
   status: "ACTIVE" | "PAUSED";
   createdAt: number;
-  lastTriggeredAt: number | null;
+  lastTriggeredAt: number | null; // diisi scheduler saat jatuh tempo
+  lastSentAt: number | null; // diisi saat pengirim menindaklanjuti (menutup siklus "due")
 }
 
 const connectionString = process.env.DATABASE_URL;
@@ -141,6 +158,37 @@ const SCHEMA_SQL = `
   );
 
   ALTER TABLE recurring ADD COLUMN IF NOT EXISTS "status" TEXT NOT NULL DEFAULT 'ACTIVE';
+
+  CREATE TABLE IF NOT EXISTS senders (
+    "senderId"            TEXT PRIMARY KEY,
+    "phoneHmac"           TEXT UNIQUE NOT NULL,
+    "phoneE164"           TEXT NOT NULL,
+    "name"                TEXT NOT NULL,
+    "passkeyCredentialId" TEXT,
+    "passkeyPublicKey"    TEXT,
+    "passkeyCounter"      BIGINT NOT NULL DEFAULT 0,
+    "walletAddress"       TEXT,
+    "createdAt"           BIGINT NOT NULL
+  );
+
+  -- OTP login/daftar pengirim; terpisah dari tabel "otps" milik alur claim.
+  CREATE TABLE IF NOT EXISTS auth_otps (
+    "phoneHmac" TEXT PRIMARY KEY,
+    "codeHash"  TEXT NOT NULL,
+    "expiresAt" BIGINT NOT NULL,
+    "attempts"  INTEGER NOT NULL DEFAULT 0
+  );
+
+  -- Challenge WebAuthn sekali-pakai (registrasi & login passkey), TTL ~5 menit.
+  CREATE TABLE IF NOT EXISTS auth_challenges (
+    "challenge" TEXT PRIMARY KEY,
+    "senderId"  TEXT,
+    "expiresAt" BIGINT NOT NULL
+  );
+
+  ALTER TABLE transfers ADD COLUMN IF NOT EXISTS "senderId" TEXT;
+  ALTER TABLE recurring ADD COLUMN IF NOT EXISTS "senderId" TEXT;
+  ALTER TABLE recurring ADD COLUMN IF NOT EXISTS "lastSentAt" BIGINT;
 `;
 
 let schemaReady: Promise<void> | null = null;
@@ -182,6 +230,7 @@ function rowToTransfer(row: Record<string, unknown>): TransferRecord {
     commitmentHex: row.commitmentHex as string,
     nonceHex: row.nonceHex as string,
     phoneE164: row.phoneE164 as string,
+    senderId: (row.senderId as string | null) ?? null,
     senderAddress: row.senderAddress as string | null,
     senderName: row.senderName as string,
     expiry: Number(row.expiry),
@@ -219,23 +268,23 @@ export async function createTransfer(
       "transferId", "token", "escrowId", "status", "corridor",
       "amountForeign", "amountUsdcStroops", "amountIdr", "rate",
       "secretHex", "hashlockHex", "commitmentHex", "nonceHex",
-      "phoneE164", "senderAddress", "senderName", "expiry",
+      "phoneE164", "senderId", "senderAddress", "senderName", "expiry",
       "depositTxHash", "claimTxHash", "payoutMethod", "cashCode",
       "createdAt", "updatedAt"
     ) VALUES (
       $1, $2, $3, $4, $5,
       $6, $7, $8, $9,
       $10, $11, $12, $13,
-      $14, $15, $16, $17,
-      $18, $19, $20, $21,
-      $22, $23
+      $14, $15, $16, $17, $18,
+      $19, $20, $21, $22,
+      $23, $24
     )
   `,
     [
       t.transferId, t.token, t.escrowId, t.status, t.corridor,
       t.amountForeign, t.amountUsdcStroops, t.amountIdr, t.rate,
       t.secretHex, t.hashlockHex, t.commitmentHex, t.nonceHex,
-      t.phoneE164, t.senderAddress, t.senderName, t.expiry,
+      t.phoneE164, t.senderId, t.senderAddress, t.senderName, t.expiry,
       t.depositTxHash, t.claimTxHash, t.payoutMethod, t.cashCode,
       ts, ts,
     ],
@@ -277,8 +326,11 @@ export async function updateTransfer(
   );
 }
 
-export async function listTransfers(): Promise<TransferRecord[]> {
-  const res = await query(`SELECT * FROM transfers ORDER BY "createdAt" DESC`);
+export async function listTransfers(senderId: string): Promise<TransferRecord[]> {
+  const res = await query(
+    `SELECT * FROM transfers WHERE "senderId" = $1 ORDER BY "createdAt" DESC`,
+    [senderId],
+  );
   return res.rows.map(rowToTransfer);
 }
 
@@ -359,19 +411,20 @@ export async function validateClaimSession(token: string, session: string): Prom
 }
 
 // ── Sangu Bulanan (recurring) ──
-export async function createRecurring(r: Omit<RecurringRecord, "createdAt" | "lastTriggeredAt" | "status">): Promise<void> {
+export async function createRecurring(r: Omit<RecurringRecord, "createdAt" | "lastTriggeredAt" | "lastSentAt" | "status">): Promise<void> {
   await query(
     `
-    INSERT INTO recurring ("recurringId", "recipientPhone", "corridor", "amountForeign", "dayOfMonth", "status", "createdAt", "lastTriggeredAt")
-    VALUES ($1, $2, $3, $4, $5, 'ACTIVE', $6, NULL)
+    INSERT INTO recurring ("recurringId", "senderId", "recipientPhone", "corridor", "amountForeign", "dayOfMonth", "status", "createdAt", "lastTriggeredAt")
+    VALUES ($1, $2, $3, $4, $5, $6, 'ACTIVE', $7, NULL)
   `,
-    [r.recurringId, r.recipientPhone, r.corridor, r.amountForeign, r.dayOfMonth, nowSec()],
+    [r.recurringId, r.senderId, r.recipientPhone, r.corridor, r.amountForeign, r.dayOfMonth, nowSec()],
   );
 }
 
 function rowToRecurring(row: Record<string, unknown>): RecurringRecord {
   return {
     recurringId: row.recurringId as string,
+    senderId: (row.senderId as string | null) ?? null,
     recipientPhone: row.recipientPhone as string,
     corridor: row.corridor as "MY" | "HK",
     amountForeign: row.amountForeign as string,
@@ -379,11 +432,15 @@ function rowToRecurring(row: Record<string, unknown>): RecurringRecord {
     status: row.status as "ACTIVE" | "PAUSED",
     createdAt: Number(row.createdAt),
     lastTriggeredAt: row.lastTriggeredAt == null ? null : Number(row.lastTriggeredAt),
+    lastSentAt: row.lastSentAt == null ? null : Number(row.lastSentAt),
   };
 }
 
-export async function listRecurring(): Promise<RecurringRecord[]> {
-  const res = await query(`SELECT * FROM recurring ORDER BY "createdAt" DESC`);
+export async function listRecurring(senderId: string): Promise<RecurringRecord[]> {
+  const res = await query(
+    `SELECT * FROM recurring WHERE "senderId" = $1 ORDER BY "createdAt" DESC`,
+    [senderId],
+  );
   return res.rows.map(rowToRecurring);
 }
 
@@ -430,4 +487,115 @@ export async function listRecurringDue(dayOfMonth: number, nowSecArg: number): P
 
 export async function markRecurringTriggered(recurringId: string, ts: number): Promise<void> {
   await query(`UPDATE recurring SET "lastTriggeredAt" = $1 WHERE "recurringId" = $2`, [ts, recurringId]);
+}
+
+/** Pengirim menindaklanjuti siklus yang jatuh tempo (kirim / tutup banner) → dueNow padam. */
+export async function markRecurringSent(recurringId: string, ts: number): Promise<void> {
+  await query(`UPDATE recurring SET "lastSentAt" = $1 WHERE "recurringId" = $2`, [ts, recurringId]);
+}
+
+// ── Senders (auth pengirim) ──
+function rowToSender(row: Record<string, unknown>): SenderRecord {
+  return {
+    senderId: row.senderId as string,
+    phoneHmac: row.phoneHmac as string,
+    phoneE164: row.phoneE164 as string,
+    name: row.name as string,
+    passkeyCredentialId: row.passkeyCredentialId as string | null,
+    passkeyPublicKey: row.passkeyPublicKey as string | null,
+    passkeyCounter: Number(row.passkeyCounter ?? 0),
+    walletAddress: row.walletAddress as string | null,
+    createdAt: Number(row.createdAt),
+  };
+}
+
+export async function createSender(s: Omit<SenderRecord, "createdAt">): Promise<void> {
+  await query(
+    `
+    INSERT INTO senders ("senderId", "phoneHmac", "phoneE164", "name",
+      "passkeyCredentialId", "passkeyPublicKey", "passkeyCounter", "walletAddress", "createdAt")
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+  `,
+    [s.senderId, s.phoneHmac, s.phoneE164, s.name, s.passkeyCredentialId, s.passkeyPublicKey, s.passkeyCounter, s.walletAddress, nowSec()],
+  );
+}
+
+export async function getSenderById(senderId: string): Promise<SenderRecord | undefined> {
+  const res = await query(`SELECT * FROM senders WHERE "senderId" = $1`, [senderId]);
+  return res.rows[0] ? rowToSender(res.rows[0]) : undefined;
+}
+
+export async function getSenderByPhoneHmac(phoneHmac: string): Promise<SenderRecord | undefined> {
+  const res = await query(`SELECT * FROM senders WHERE "phoneHmac" = $1`, [phoneHmac]);
+  return res.rows[0] ? rowToSender(res.rows[0]) : undefined;
+}
+
+const SENDER_UPDATABLE_COLUMNS = new Set([
+  "name", "passkeyCredentialId", "passkeyPublicKey", "passkeyCounter", "walletAddress",
+]);
+
+export async function updateSender(
+  senderId: string,
+  patch: Partial<Pick<SenderRecord, "name" | "passkeyCredentialId" | "passkeyPublicKey" | "passkeyCounter" | "walletAddress">>,
+): Promise<void> {
+  const keys = Object.keys(patch).filter((k) => SENDER_UPDATABLE_COLUMNS.has(k));
+  if (keys.length === 0) return;
+  const values = keys.map((k) => (patch as Record<string, unknown>)[k]);
+  await query(
+    `UPDATE senders SET ${keys.map((k, i) => `"${k}" = $${i + 1}`).join(", ")} WHERE "senderId" = $${keys.length + 1}`,
+    [...values, senderId],
+  );
+}
+
+// ── OTP auth pengirim: pola sama dengan otps (hash kode, max 5 percobaan) ──
+export async function saveAuthOtp(phoneHmac: string, codeHash: string, expiresAt: number): Promise<void> {
+  await query(
+    `
+    INSERT INTO auth_otps ("phoneHmac", "codeHash", "expiresAt", "attempts") VALUES ($1, $2, $3, 0)
+    ON CONFLICT ("phoneHmac") DO UPDATE SET "codeHash" = $2, "expiresAt" = $3, "attempts" = 0
+  `,
+    [phoneHmac, codeHash, expiresAt],
+  );
+}
+
+export async function consumeAuthOtp(phoneHmac: string, codeHash: string, nowSecArg: number): Promise<boolean> {
+  const res = await query(`SELECT * FROM auth_otps WHERE "phoneHmac" = $1`, [phoneHmac]);
+  const row = res.rows[0] as
+    | { phoneHmac: string; codeHash: string; expiresAt: string | number; attempts: number }
+    | undefined;
+  if (!row) return false;
+
+  if (row.codeHash === codeHash && Number(row.expiresAt) > nowSecArg) {
+    await query(`DELETE FROM auth_otps WHERE "phoneHmac" = $1`, [phoneHmac]);
+    return true;
+  }
+
+  const attempts = row.attempts + 1;
+  if (attempts >= 5) {
+    await query(`DELETE FROM auth_otps WHERE "phoneHmac" = $1`, [phoneHmac]);
+  } else {
+    await query(`UPDATE auth_otps SET "attempts" = $1 WHERE "phoneHmac" = $2`, [attempts, phoneHmac]);
+  }
+  return false;
+}
+
+// ── Challenge WebAuthn sekali-pakai ──
+export async function saveAuthChallenge(challenge: string, senderId: string | null, ttlSec = 300): Promise<void> {
+  await query(
+    `INSERT INTO auth_challenges ("challenge", "senderId", "expiresAt") VALUES ($1, $2, $3)`,
+    [challenge, senderId, nowSec() + ttlSec],
+  );
+}
+
+/** Ambil + hapus challenge (sekali pakai). Mengembalikan senderId terkait bila masih berlaku. */
+export async function consumeAuthChallenge(
+  challenge: string,
+): Promise<{ ok: boolean; senderId: string | null }> {
+  const res = await query(
+    `DELETE FROM auth_challenges WHERE "challenge" = $1 RETURNING "senderId", "expiresAt"`,
+    [challenge],
+  );
+  const row = res.rows[0] as { senderId: string | null; expiresAt: string | number } | undefined;
+  if (!row || Number(row.expiresAt) <= nowSec()) return { ok: false, senderId: null };
+  return { ok: true, senderId: row.senderId };
 }

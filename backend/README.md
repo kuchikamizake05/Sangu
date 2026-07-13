@@ -26,6 +26,22 @@ npm run dev               # http://localhost:4000  (GET /health)
 4. Jembatan **SEP-24 → SDF Test Anchor** (SEP-10 auth → interactive → bayar ber-memo).
 5. Scheduler Sangu Bulanan + keeper `refund` saat expiry.
 
+## Auth pengirim (`/api/auth/*`)
+Kontrak & pembagian kerja: `docs/auth-pengirim-pembagian-kerja-fe-be.md`.
+OTP hanya untuk daftar/recovery; login harian via passkey (WebAuthn). Semua route
+sender (kecuali `GET /api/quote`) butuh `Authorization: Bearer <JWT>` dan ter-scope
+ke `senderId`. Mode dev/demo: `OTP_PROVIDER=mock` → kode OTP selalu `123456`.
+
+Env tambahan (semua punya default dev — WAJIB diisi untuk produksi):
+
+| Var | Fungsi | Default dev |
+|---|---|---|
+| `AUTH_JWT_SECRET` | secret JWT session 30 hari | `sangu-dev-jwt-secret` (warning saat start) |
+| `PHONE_HMAC_KEY` | HMAC lookup nomor HP di tabel `senders` | `sangu-dev-phone-hmac` |
+| `AUTH_RP_ID` | rpID WebAuthn (domain frontend tanpa skema) | `localhost` |
+| `AUTH_ORIGIN` | origin frontend untuk verifikasi WebAuthn | `http://localhost:3000` |
+| `RECURRING_INTERVAL_MS` | interval cek jadwal Sangu Bulanan (percepat untuk demo `dueNow`) | 1 jam |
+
 ## Catatan penting
 - **secret** dibuat & disimpan backend (`src/stellar/escrow.ts#newSecret`), **tidak** di URL.
 - Link claim hanya membawa **token opaque**.
