@@ -30,7 +30,7 @@ npm run dev               # http://localhost:4000  (GET /health)
 Kontrak & pembagian kerja: `docs/auth-pengirim-pembagian-kerja-fe-be.md`.
 OTP hanya untuk daftar/recovery; login harian via passkey (WebAuthn). Semua route
 sender (kecuali `GET /api/quote`) butuh `Authorization: Bearer <JWT>` dan ter-scope
-ke `senderId`. Mode dev/demo: `OTP_PROVIDER=mock` → kode OTP selalu `123456`.
+ke `senderId`. Mode dev/demo: `OTP_PROVIDER=mock` → kode OTP selalu `000000`.
 
 Env tambahan (semua punya default dev — WAJIB diisi untuk produksi):
 
