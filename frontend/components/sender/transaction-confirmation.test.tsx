@@ -12,7 +12,7 @@ describe("TransactionConfirmation", () => {
     vi.mocked(submitSend).mockResolvedValue({ transferId: "transfer-1", escrowId: "1", claimUrl: "https://sangu.test/claim/token" });
     render(<TransactionConfirmation transferId="transfer-1" unsignedXDR="unsigned-xdr" />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Konfirmasi dengan biometrik" }));
+    fireEvent.click(screen.getByRole("button", { name: "Konfirmasi pengiriman dengan sidik jari" }));
     await expect(screen.findByText("Bagikan link ke keluarga")).resolves.toBeInTheDocument();
     expect(signWithPasskey).toHaveBeenCalledWith("unsigned-xdr");
     expect(submitSend).toHaveBeenCalledWith({ transferId: "transfer-1", signedXDR: "signed-xdr" });
@@ -22,9 +22,9 @@ describe("TransactionConfirmation", () => {
     vi.mocked(signWithPasskey).mockRejectedValue(new Error("Biometrik dibatalkan."));
     render(<TransactionConfirmation transferId="transfer-1" unsignedXDR="unsigned-xdr" />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Konfirmasi dengan biometrik" }));
+    fireEvent.click(screen.getByRole("button", { name: "Konfirmasi pengiriman dengan sidik jari" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Biometrik dibatalkan.");
-    expect(screen.getByRole("button", { name: "Konfirmasi dengan biometrik" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Konfirmasi pengiriman dengan sidik jari" })).toBeEnabled();
   });
 
   it("copies the link when the browser share sheet is unavailable", async () => {
@@ -33,7 +33,7 @@ describe("TransactionConfirmation", () => {
     Object.assign(navigator, { clipboard: { writeText: vi.fn().mockResolvedValue(undefined) } });
     render(<TransactionConfirmation transferId="transfer-1" unsignedXDR="unsigned-xdr" />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Konfirmasi dengan biometrik" }));
+    fireEvent.click(screen.getByRole("button", { name: "Konfirmasi pengiriman dengan sidik jari" }));
     await screen.findByText("Bagikan link ke keluarga");
     fireEvent.click(screen.getByRole("button", { name: "Bagikan via WhatsApp" }));
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Link claim sudah disalin."));

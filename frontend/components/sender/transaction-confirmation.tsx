@@ -36,6 +36,6 @@ export function TransactionConfirmation({ transferId, unsignedXDR }: { transferI
 
   if (stage === "done" && claimUrl) return <div className="mt-6 rounded-3xl bg-[#080808] p-5 text-white"><p className="text-xs font-extrabold tracking-[.15em] text-[#ffb28e]">TRANSFER TERKIRIM</p><h2 className="mt-2 text-2xl font-extrabold tracking-[-.05em]">Bagikan link ke keluarga</h2><p className="mt-2 text-sm text-white/70">Penerima cukup membuka link ini dan memverifikasi OTP untuk mencairkan.</p><a className="mt-4 block break-all rounded-2xl bg-white/10 p-3 text-sm font-semibold underline" href={claimUrl}>{claimUrl}</a><Button className="mt-4" fullWidth onClick={share}>Bagikan via WhatsApp</Button>{notice && <p className="mt-3 text-sm text-[#ffb28e]" role="status">{notice}</p>}</div>;
 
-  const label = stage === "signing" ? "Menunggu biometrik…" : stage === "submitting" ? "Mengirim transaksi…" : "Konfirmasi dengan biometrik";
+  const label = stage === "signing" ? "Menunggu sidik jari…" : stage === "submitting" ? "Mengirim uang…" : "Konfirmasi pengiriman dengan sidik jari";
   return <div className="mt-6"><Button fullWidth onClick={confirm} disabled={stage !== "idle"}>{label}</Button>{notice && <p className="mt-3 text-sm font-semibold text-[#c72307]" role="alert">{notice}</p>}</div>;
 }
