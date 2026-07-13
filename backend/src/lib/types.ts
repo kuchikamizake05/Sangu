@@ -29,9 +29,8 @@ export interface PrepareSendRequest {
   amountForeign: string;
   recipientPhone: string; // E.164
   methodHint?: PayoutMethod;
-  // Alamat passkey smart wallet pengirim (C.../G...). Wajib untuk menyusun XDR deposit nyata;
-  // tanpa ini (atau tanpa ESCROW_ID di env) backend jatuh ke demo-mode.
-  senderAddress?: string;
+  // Alamat smart wallet TIDAK dikirim dari frontend — diambil dari profil sender
+  // hasil sesi login (docs/auth-pengirim-pembagian-kerja-fe-be.md §2.4).
 }
 
 export interface PrepareSendResponse {

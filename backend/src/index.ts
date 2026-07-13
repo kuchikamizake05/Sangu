@@ -3,6 +3,8 @@ import Fastify from "fastify";
 import cors from "@fastify/cors";
 import senderRoutes from "./routes/sender.js";
 import claimRoutes from "./routes/claim.js";
+import authRoutes from "./routes/auth.js";
+import { registerAuth } from "./lib/auth.js";
 import { startScheduler, stopScheduler } from "./lib/scheduler.js";
 import { closeDb } from "./lib/db.js";
 import { isOnchainEnabled } from "./stellar/escrow.js";
@@ -16,6 +18,8 @@ app.get("/health", async () => ({
   onchain: isOnchainEnabled(), // false = demo-mode (ESCROW_ID/RELAYER_SECRET belum diisi)
   anchor: isAnchorEnabled(),
 }));
+await registerAuth(app); // JWT + decorator authenticate — wajib sebelum route sender
+await app.register(authRoutes);
 await app.register(senderRoutes);
 await app.register(claimRoutes);
 

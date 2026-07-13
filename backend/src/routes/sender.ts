@@ -7,8 +7,11 @@
 //   3) POST /api/send/submit   → backend fee (relayer) + submit signed XDR
 //
 // DEMO-MODE: bila ESCROW_ID/RELAYER_SECRET belum diisi (contract belum deploy) atau
-// senderAddress tidak dikirim, alur tetap jalan end-to-end dengan escrow disimulasikan
-// (escrowId "SIM-...") supaya frontend tidak menunggu.
+// sender belum mendaftarkan smart wallet (passkey), alur tetap jalan end-to-end dengan
+// escrow disimulasikan (escrowId "SIM-...") supaya frontend tidak menunggu.
+//
+// AUTH: semua route di sini butuh Bearer JWT (kecuali /api/quote) dan datanya
+// ter-scope ke senderId dari sesi — lihat docs/auth-pengirim-pembagian-kerja-fe-be.md.
 import crypto from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import { getQuote } from "../lib/fx.js";
@@ -22,6 +25,7 @@ import {
 import {
   createTransfer,
   getTransferById,
+  getSenderById,
   listTransferEvents,
   recordTransferEvent,
   updateTransfer,
@@ -32,6 +36,7 @@ import {
   listRecurring,
   updateRecurring,
 } from "../lib/db.js";
+import { maskPhone } from "../lib/auth.js";
 import type {
   Corridor,
   PrepareSendRequest,
@@ -58,12 +63,10 @@ function badRequest(reply: { code: (n: number) => unknown }, message: string) {
   return { error: { code: "BAD_REQUEST", message } };
 }
 
-/** Masking nomor HP untuk riwayat — jangan bocorkan nomor penuh ke list. */
-function maskPhone(e164: string): string {
-  return e164.slice(0, 6) + "•••" + e164.slice(-2);
-}
-
 export default async function senderRoutes(app: FastifyInstance) {
+  // Semua route di file ini butuh sesi login KECUALI /api/quote (publik, untuk landing).
+  const authed = { preHandler: [app.authenticate] };
+
   app.get("/api/quote", async (req, reply) => {
     const { corridor, amountForeign } = req.query as { corridor: Corridor; amountForeign: string };
     if (corridor !== "MY" && corridor !== "HK") return badRequest(reply, "corridor harus MY|HK");
@@ -73,7 +76,7 @@ export default async function senderRoutes(app: FastifyInstance) {
   });
 
   // Langkah 1 — siapkan deposit (XDR unsigned untuk di-sign passkey wallet).
-  app.post("/api/send/prepare", async (req, reply): Promise<unknown> => {
+  app.post("/api/send/prepare", authed, async (req, reply): Promise<unknown> => {
     const body = req.body as PrepareSendRequest;
     if (body.corridor !== "MY" && body.corridor !== "HK")
       return badRequest(reply, "corridor harus MY|HK");
@@ -91,11 +94,15 @@ export default async function senderRoutes(app: FastifyInstance) {
     const commitment = recipientCommitment(body.recipientPhone, nonce);
     const token = crypto.randomBytes(16).toString("hex"); // token OPAQUE — bukan secret
 
-    // XDR nyata hanya bila on-chain terkonfigurasi DAN frontend mengirim senderAddress.
+    // Identitas & wallet pengirim dari sesi login — TIDAK lagi dari body (spek auth §2.4).
+    const sender = await getSenderById(req.user.senderId);
+    const walletAddress = sender?.walletAddress ?? null;
+
+    // XDR nyata hanya bila on-chain terkonfigurasi DAN sender sudah punya smart wallet.
     let unsignedXDR = "DEMO_UNSIGNED_XDR"; // penanda demo-mode — frontend boleh skip sign
-    if (isOnchainEnabled() && body.senderAddress) {
+    if (isOnchainEnabled() && walletAddress) {
       ({ unsignedXDR } = await prepareDeposit({
-        senderAddress: body.senderAddress,
+        senderAddress: walletAddress,
         amount: quote.usdcStroops,
         hashlock,
         recipientCommitment: commitment,
@@ -119,8 +126,9 @@ export default async function senderRoutes(app: FastifyInstance) {
       commitmentHex: commitment.toString("hex"),
       nonceHex: nonce.toString("hex"),
       phoneE164: body.recipientPhone,
-      senderAddress: body.senderAddress ?? null,
-      senderName: "Pengirim Sangu", // TODO: dari sesi login pengirim
+      senderId: req.user.senderId,
+      senderAddress: walletAddress,
+      senderName: sender?.name ?? "Pengirim Sangu",
       expiry,
       depositTxHash: null,
       claimTxHash: null,
@@ -134,10 +142,10 @@ export default async function senderRoutes(app: FastifyInstance) {
   });
 
   // Langkah 2 — submit XDR yang sudah di-sign passkey wallet (relayer bayar fee).
-  app.post("/api/send/submit", async (req, reply): Promise<unknown> => {
+  app.post("/api/send/submit", authed, async (req, reply): Promise<unknown> => {
     const body = req.body as SubmitSendRequest;
     const transfer = await getTransferById(body.transferId);
-    if (!transfer) {
+    if (!transfer || transfer.senderId !== req.user.senderId) {
       reply.code(404);
       return { error: { code: "NOT_FOUND", message: "transfer tidak ditemukan" } };
     }
@@ -162,8 +170,8 @@ export default async function senderRoutes(app: FastifyInstance) {
     return res;
   });
 
-  app.get("/api/transfers", async () =>
-    (await listTransfers()).map((t) => ({
+  app.get("/api/transfers", authed, async (req) =>
+    (await listTransfers(req.user.senderId)).map((t) => ({
       transferId: t.transferId,
       status: t.status,
       amount: t.amountForeign,
@@ -177,7 +185,7 @@ export default async function senderRoutes(app: FastifyInstance) {
   // Sangu Bulanan — scheduler menandai jatuh tempo tiap dayOfMonth.
   // Catatan roadmap: tiap kirim tetap butuh sign passkey (non-custodial), jadi trigger
   // otomatis = notifikasi "siap kirim", bukan auto-debit.
-  app.post("/api/recurring", async (req, reply) => {
+  app.post("/api/recurring", authed, async (req, reply) => {
     const body = req.body as {
       recipientPhone: string;
       corridor: Corridor;
@@ -195,6 +203,7 @@ export default async function senderRoutes(app: FastifyInstance) {
     const recurringId = crypto.randomUUID();
     await createRecurring({
       recurringId,
+      senderId: req.user.senderId,
       recipientPhone: body.recipientPhone,
       corridor: body.corridor,
       amountForeign: body.amountForeign,
@@ -203,8 +212,8 @@ export default async function senderRoutes(app: FastifyInstance) {
     return { recurringId };
   });
 
-  app.get("/api/recurring", async () =>
-    (await listRecurring()).map((recurring) => ({
+  app.get("/api/recurring", authed, async (req) =>
+    (await listRecurring(req.user.senderId)).map((recurring) => ({
       recurringId: recurring.recurringId,
       recipientMasked: maskPhone(recurring.recipientPhone),
       corridor: recurring.corridor,
@@ -215,10 +224,10 @@ export default async function senderRoutes(app: FastifyInstance) {
     }))
   );
 
-  app.get("/api/transfers/:transferId", async (req, reply) => {
+  app.get("/api/transfers/:transferId", authed, async (req, reply) => {
     const { transferId } = req.params as { transferId: string };
     const transfer = await getTransferById(transferId);
-    if (!transfer) { reply.code(404); return { error: { code: "NOT_FOUND", message: "transfer tidak ditemukan" } }; }
+    if (!transfer || transfer.senderId !== req.user.senderId) { reply.code(404); return { error: { code: "NOT_FOUND", message: "transfer tidak ditemukan" } }; }
     return {
       transferId: transfer.transferId,
       status: transfer.status,
@@ -237,10 +246,10 @@ export default async function senderRoutes(app: FastifyInstance) {
     };
   });
 
-  app.patch("/api/recurring/:recurringId", async (req, reply) => {
+  app.patch("/api/recurring/:recurringId", authed, async (req, reply) => {
     const { recurringId } = req.params as { recurringId: string };
     const existing = await getRecurringById(recurringId);
-    if (!existing) { reply.code(404); return { error: { code: "NOT_FOUND", message: "jadwal tidak ditemukan" } }; }
+    if (!existing || existing.senderId !== req.user.senderId) { reply.code(404); return { error: { code: "NOT_FOUND", message: "jadwal tidak ditemukan" } }; }
     const body = req.body as Partial<{ recipientPhone: string; corridor: Corridor; amountForeign: string; dayOfMonth: number }>;
     const patch: Partial<{ recipientPhone: string; corridor: Corridor; amountForeign: string; dayOfMonth: number }> = {};
     if (body.recipientPhone !== undefined) {
@@ -266,18 +275,20 @@ export default async function senderRoutes(app: FastifyInstance) {
   });
 
   for (const action of ["pause", "resume"] as const) {
-    app.post(`/api/recurring/:recurringId/${action}`, async (req, reply) => {
+    app.post(`/api/recurring/:recurringId/${action}`, authed, async (req, reply) => {
       const { recurringId } = req.params as { recurringId: string };
-      if (!await getRecurringById(recurringId)) { reply.code(404); return { error: { code: "NOT_FOUND", message: "jadwal tidak ditemukan" } }; }
+      const existing = await getRecurringById(recurringId);
+      if (!existing || existing.senderId !== req.user.senderId) { reply.code(404); return { error: { code: "NOT_FOUND", message: "jadwal tidak ditemukan" } }; }
       const status = action === "pause" ? "PAUSED" : "ACTIVE";
       await updateRecurring(recurringId, { status });
       return { recurringId, status };
     });
   }
 
-  app.delete("/api/recurring/:recurringId", async (req, reply) => {
+  app.delete("/api/recurring/:recurringId", authed, async (req, reply) => {
     const { recurringId } = req.params as { recurringId: string };
-    if (!await getRecurringById(recurringId)) { reply.code(404); return { error: { code: "NOT_FOUND", message: "jadwal tidak ditemukan" } }; }
+    const existing = await getRecurringById(recurringId);
+    if (!existing || existing.senderId !== req.user.senderId) { reply.code(404); return { error: { code: "NOT_FOUND", message: "jadwal tidak ditemukan" } }; }
     await deleteRecurring(recurringId);
     reply.code(204);
   });
