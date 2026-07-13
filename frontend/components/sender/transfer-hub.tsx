@@ -12,9 +12,20 @@ type TransferHubProps = {
   onStartTransfer: () => void;
   showHistory?: boolean;
   showRecurring?: boolean;
+  historyMode?: "full" | "preview";
+  viewHistoryHref?: string;
 };
 
-export function TransferHub({ onStartTransfer, showHistory = true, showRecurring = true }: TransferHubProps) {
+const filterOptions: { value: TransferFilter; label: string }[] = [
+  { value: "ALL", label: "Semua" },
+  { value: "PENDING", label: "Menunggu" },
+  { value: "CLAIMED", label: "Diproses" },
+  { value: "PAID_OUT", label: "Selesai" },
+  { value: "REFUNDED", label: "Dikembalikan" },
+  { value: "EXPIRED", label: "Kedaluwarsa" },
+];
+
+export function TransferHub({ onStartTransfer, showHistory = true, showRecurring = true, historyMode = "full", viewHistoryHref }: TransferHubProps) {
   const [transfers, setTransfers] = useState<TransferSummary[] | null>(null);
   const [filter, setFilter] = useState<TransferFilter>("ALL");
   const [showForm, setShowForm] = useState(false);
@@ -43,26 +54,31 @@ export function TransferHub({ onStartTransfer, showHistory = true, showRecurring
   const filteredTransfers = transfers ? filterTransfers(transfers, filter) : [];
   const activeTransfers = filter === "ALL" ? filteredTransfers.filter((transfer) => transfer.status === "PENDING" || transfer.status === "CLAIMED") : [];
   const archivedTransfers = filter === "ALL" ? filteredTransfers.filter((transfer) => !activeTransfers.includes(transfer)) : filteredTransfers;
+  const previewTransfers = [...activeTransfers, ...archivedTransfers].slice(0, 2);
+  const isPreview = historyMode === "preview";
 
   return <section className="grid gap-5">
     {showHistory && <Card className="mt-1">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-2xl font-extrabold tracking-[-.04em]">Riwayat kiriman</p>
-          <p className="mt-1 text-sm text-[#676767]">Pantau uang yang sedang menunggu atau sudah dicairkan.</p>
+          <p className="text-2xl font-extrabold tracking-[-.04em]">{isPreview ? "Kiriman terbaru" : "Riwayat kiriman"}</p>
+          <p className="mt-1 text-sm text-[#676767]">{isPreview ? "Pantau kiriman terakhir tanpa memenuhi Beranda." : "Pantau uang yang sedang menunggu atau sudah dicairkan."}</p>
         </div>
-        <Button onClick={onStartTransfer}>Kirim</Button>
+        {isPreview && viewHistoryHref ? <a className="shrink-0 text-sm font-extrabold text-[#9e1d0e] no-underline hover:underline" href={viewHistoryHref}>Lihat semua riwayat</a> : <Button onClick={onStartTransfer}>Kirim</Button>}
       </div>
 
       {transfers === null ? <p className="mt-8 text-sm text-[#676767]">Memuat riwayat…</p> : <>
-        <div className="mt-5 flex gap-2 overflow-x-auto pb-1" aria-label="Filter status">
-          <FilterButton active={filter === "ALL"} onClick={() => setFilter("ALL")}>Semua</FilterButton>
-          <FilterButton active={filter === "PENDING"} onClick={() => setFilter("PENDING")}>Menunggu</FilterButton>
-          <FilterButton active={filter === "CLAIMED"} onClick={() => setFilter("CLAIMED")}>Diproses</FilterButton>
-          <FilterButton active={filter === "PAID_OUT"} onClick={() => setFilter("PAID_OUT")}>Selesai</FilterButton>
-          <FilterButton active={filter === "REFUNDED"} onClick={() => setFilter("REFUNDED")}>Dikembalikan</FilterButton>
-          <FilterButton active={filter === "EXPIRED"} onClick={() => setFilter("EXPIRED")}>Kedaluwarsa</FilterButton>
-        </div>
+        {isPreview ? <>
+          {previewTransfers.length === 0 ? <EmptyHistory filter="ALL" onStartTransfer={onStartTransfer} /> : <div className="mt-6"><TransferList transfers={previewTransfers} emphasis={activeTransfers.length > 0} /></div>}
+        </> : <>
+          <div className="mt-5 sm:hidden">
+            <SelectInput aria-label="Filter status" value={filter} onChange={(event) => setFilter(event.target.value as TransferFilter)}>
+              {filterOptions.map((option) => <option key={option.value} value={option.value}>{option.value === "ALL" ? "Semua status" : option.label}</option>)}
+            </SelectInput>
+          </div>
+          <div className="mt-5 hidden gap-2 sm:flex" aria-label="Filter status">
+            {filterOptions.map((option) => <FilterButton key={option.value} active={filter === option.value} onClick={() => setFilter(option.value)}>{option.label}</FilterButton>)}
+          </div>
 
         {filteredTransfers.length === 0 ? <EmptyHistory filter={filter} onStartTransfer={onStartTransfer} /> : <div className="mt-6 grid gap-6">
           {activeTransfers.length > 0 && <section aria-labelledby="active-transfers-heading">
@@ -80,6 +96,7 @@ export function TransferHub({ onStartTransfer, showHistory = true, showRecurring
             <TransferList transfers={archivedTransfers} />
           </section>}
         </div>}
+        </>}
       </>}
     </Card>}
 
