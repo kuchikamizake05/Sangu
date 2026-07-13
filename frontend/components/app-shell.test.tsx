@@ -6,7 +6,7 @@ import { AppShell } from "./app-shell";
 vi.mock("next/navigation", () => ({ usePathname: vi.fn() }));
 
 describe("AppShell", () => {
-  beforeEach(() => vi.mocked(usePathname).mockReturnValue("/"));
+  beforeEach(() => vi.mocked(usePathname).mockReturnValue("/app"));
 
   it("provides app navigation for desktop and mobile sender surfaces", () => {
     render(<AppShell>Isi halaman</AppShell>);
