@@ -10,24 +10,11 @@ type Currency = { code: string; flag: string; label: string; fallbackToIdr: numb
 const CURRENCIES: Currency[] = [
   { code: "MYR", flag: "🇲🇾", label: "Ringgit Malaysia", fallbackToIdr: 3685 },
   { code: "HKD", flag: "🇭🇰", label: "Dolar Hong Kong", fallbackToIdr: 2110 },
-  { code: "TWD", flag: "🇹🇼", label: "Dolar Taiwan", fallbackToIdr: 557 },
-  { code: "SAR", flag: "🇸🇦", label: "Riyal Saudi", fallbackToIdr: 4390 },
-  { code: "SGD", flag: "🇸🇬", label: "Dolar Singapura", fallbackToIdr: 12800 },
-  { code: "AED", flag: "🇦🇪", label: "Dirham UEA", fallbackToIdr: 4480 },
-  { code: "KRW", flag: "🇰🇷", label: "Won Korea", fallbackToIdr: 11.9 },
-  { code: "JPY", flag: "🇯🇵", label: "Yen Jepang", fallbackToIdr: 111 },
-  { code: "USD", flag: "🇺🇸", label: "Dolar AS", fallbackToIdr: 16450 },
 ];
 
 const TIMEZONE_CURRENCY: Record<string, string> = {
   "Asia/Kuala_Lumpur": "MYR", "Asia/Kuching": "MYR",
   "Asia/Hong_Kong": "HKD", "Asia/Macau": "HKD",
-  "Asia/Taipei": "TWD",
-  "Asia/Riyadh": "SAR",
-  "Asia/Singapore": "SGD",
-  "Asia/Dubai": "AED",
-  "Asia/Seoul": "KRW",
-  "Asia/Tokyo": "JPY",
 };
 
 function detectCurrency(): string {
