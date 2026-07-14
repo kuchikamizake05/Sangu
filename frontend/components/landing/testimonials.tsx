@@ -1,31 +1,36 @@
+"use client";
+
+import { useT } from "@/lib/i18n/locale-context";
 import styles from "./landing.module.css";
 import { Reveal } from "./reveal";
 
-type Card = { text: string; by: string; flag: string };
+type Card = { key: string; by: string; flag: string };
 
 const CARDS: Card[] = [
-  { text: "Dulu nunggu akhir pekan buat antre di counter. Sekarang sambil rebahan, sangu sudah sampai.", by: "Sari", flag: "🇲🇾 MY" },
-  { text: "Transfer tengah malam pun tetap sampai. Beda zona waktu, uang tetap masuk dalam hitungan detik.", by: "Fitri", flag: "🇸🇬 SG" },
-  { text: "Ibu di Wonosobo tinggal buka link, uangnya langsung masuk. Nggak perlu ngajarin aplikasi.", by: "Yanti", flag: "🇭🇰 HK" },
-  { text: "Gajian tanggal 25, tanggal 25 juga sampai di rumah. Sangu Bulanan jalan sendiri.", by: "Budi", flag: "🇲🇾 MY" },
-  { text: "Sekali atur jadwal, tiap bulan berangkat otomatis. Aku nggak pernah lupa kirim sangu lagi.", by: "Hendra", flag: "🇦🇪 AE" },
-  { text: "Yang kukirim, itu yang diterima. Nggak ada potongan aneh-aneh di tengah jalan.", by: "Rina", flag: "🇹🇼 TW" },
-  { text: "Login sidik jarinya bikin tenang. Nggak ada password yang bisa dibobol orang.", by: "Dewi", flag: "🇸🇦 SA" },
+  { key: "sari", by: "Sari", flag: "🇲🇾 MY" },
+  { key: "fitri", by: "Fitri", flag: "🇸🇬 SG" },
+  { key: "yanti", by: "Yanti", flag: "🇭🇰 HK" },
+  { key: "budi", by: "Budi", flag: "🇲🇾 MY" },
+  { key: "hendra", by: "Hendra", flag: "🇦🇪 AE" },
+  { key: "rina", by: "Rina", flag: "🇹🇼 TW" },
+  { key: "dewi", by: "Dewi", flag: "🇸🇦 SA" },
 ];
 
 function CardView({ card }: { card: Card }) {
+  const t = useT();
   return <figure className={styles.commCard}>
-    <blockquote>{card.text}</blockquote>
+    <blockquote>{t(`landing.testimonials.cards.${card.key}`)}</blockquote>
     <figcaption className={styles.commFoot}><span>{card.by}</span><span className={styles.commFlag}>{card.flag}</span></figcaption>
   </figure>;
 }
 
 export function Testimonials() {
-  return <section className={styles.community} aria-label="Testimoni komunitas">
+  const t = useT();
+  return <section className={styles.community} aria-label={t("landing.testimonials.ariaLabel")}>
     <div className={styles.container}>
       <Reveal className={styles.center}>
-        <h2 className={styles.sectionTitle}>Kata komunitas perantau</h2>
-        <p className={styles.sectionSub}>Dibuat untuk yang hidup, kerja, dan berpenghasilan lintas negara.</p>
+        <h2 className={styles.sectionTitle}>{t("landing.testimonials.title")}</h2>
+        <p className={styles.sectionSub}>{t("landing.testimonials.sub")}</p>
       </Reveal>
     </div>
     <div className={styles.commMarquee}>

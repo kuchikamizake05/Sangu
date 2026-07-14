@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Image, { type StaticImageData } from "next/image";
+import { useT } from "@/lib/i18n/locale-context";
 import styles from "./landing.module.css";
 import hero1Img from "@/asset/hero/hero1.png";
 import hero2Img from "@/asset/hero/hero2.png";
@@ -12,25 +13,26 @@ import kunciImg from "@/asset/fitur/kunci.png";
 import sanguBulananImg from "@/asset/fitur/sangu-bulanan.png";
 import keluargaKlaimImg from "@/asset/fitur/keluarga-klaim2.png";
 
-type StripCard = { image: StaticImageData; alt: string };
+type StripCard = { image: StaticImageData; altKey: string };
 
 const CARDS: StripCard[] = [
-  { image: hero3Img, alt: "Perempuan mengirim uang dengan kurs asli dari rooftop kota." },
-  { image: kunciImg, alt: "Layar pengaturan keamanan dan sidik jari di ponsel." },
-  { image: hero1Img, alt: "Perempuan menerima pembayaran di ponselnya." },
-  { image: sanguBulananImg, alt: "Mengirim nominal sangu secara terjadwal tiap bulan." },
-  { image: keluargaKlaimImg, alt: "Ratna di Indonesia menerima transfer instan lewat link." },
-  { image: kirimUangImg, alt: "Perantau mengirim uang lintas mata uang lewat aplikasi." },
-  { image: hero4Img, alt: "Notifikasi transfer diterima di layar ponsel." },
-  { image: hero2Img, alt: "Laki-laki membuka aplikasi transfer di pesawat." },
+  { image: hero3Img, altKey: "landing.hero.strip.alt1" },
+  { image: kunciImg, altKey: "landing.hero.strip.alt2" },
+  { image: hero1Img, altKey: "landing.hero.strip.alt3" },
+  { image: sanguBulananImg, altKey: "landing.hero.strip.alt4" },
+  { image: keluargaKlaimImg, altKey: "landing.hero.strip.alt5" },
+  { image: kirimUangImg, altKey: "landing.hero.strip.alt6" },
+  { image: hero4Img, altKey: "landing.hero.strip.alt7" },
+  { image: hero2Img, altKey: "landing.hero.strip.alt8" },
 ];
 
 const REPEAT = 4;
 const STEP_MS = 3400;
 
 function StripCardView({ card, wide }: { card: StripCard; wide: boolean }) {
+  const t = useT();
   return <div className={`${styles.stripCard} ${wide ? styles.stripCardWide : ""}`}>
-    <Image src={card.image} alt={card.alt} fill sizes="600px" className={styles.stripPhoto} />
+    <Image src={card.image} alt={t(card.altKey)} fill sizes="600px" className={styles.stripPhoto} />
   </div>;
 }
 
@@ -66,14 +68,15 @@ function HeroStrip() {
 }
 
 export function Hero() {
+  const t = useT();
   return <>
     <section className={styles.hero}>
       <div className={styles.container}>
-        <h1 className={styles.heroTitle}>Sangu pulang untuk <span className={styles.flipSlot}>keluarga</span>.</h1>
-        <p className={styles.heroSub}>Kirim uang dari rantau ke rumah dalam hitungan detik, dengan kurs asli dan kunci yang tetap milikmu.</p>
+        <h1 className={styles.heroTitle}>{t("landing.hero.title")} <span className={styles.flipSlot}>{t("landing.hero.titleHighlight")}</span>.</h1>
+        <p className={styles.heroSub}>{t("landing.hero.sub")}</p>
         <div className={styles.heroCtas}>
-          <a className={`${styles.pill} ${styles.pillLarge}`} href="/app">Buka akun gratis</a>
-          <a className={`${styles.pillGhost} ${styles.pillLarge}`} href="#kurs">Lihat kursnya</a>
+          <a className={`${styles.pill} ${styles.pillLarge}`} href="/app">{t("landing.hero.ctaPrimary")}</a>
+          <a className={`${styles.pillGhost} ${styles.pillLarge}`} href="#kurs">{t("landing.hero.ctaSecondary")}</a>
         </div>
       </div>
     </section>
