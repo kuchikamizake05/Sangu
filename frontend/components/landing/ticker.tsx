@@ -9,7 +9,7 @@ export function Ticker() {
     <h2 className={styles.tickerLabel}>Dibangun di atas rel yang terpercaya</h2>
     <div className={styles.ticker}>
       <div className={styles.tickerTrack}>
-        {[0, 1].map((copy) => GROUP.map((name, i) => <span key={`${copy}-${i}`} className={styles.tickerItem} aria-hidden={copy === 1 || undefined}>{name}</span>))}
+        {[0, 1].map((copy) => GROUP.map((name, i) => <span key={`${copy}-${i}`} className={styles.tickerItem} aria-hidden={copy === 1 || i >= PARTNERS.length || undefined}>{name}</span>))}
       </div>
     </div>
   </section>;

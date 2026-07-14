@@ -1,4 +1,5 @@
 import { StatusBadge } from "@/components/ui/status-badge";
+import { UserIcon } from "@/components/ui/icons";
 import type { TransferSummary } from "@/lib/api";
 import { formatForeignAmount } from "@/lib/send-flow";
 
@@ -19,10 +20,10 @@ function relativeDate(isoDate: string): string {
   return date.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
 }
 
-function initialFor(recipientMasked: string): string {
-  const trimmed = recipientMasked.trim();
-  const firstAlpha = trimmed.match(/[A-Za-z0-9]/);
-  return (firstAlpha?.[0] ?? "?").toUpperCase();
+// Inisial hanya bermakna kalau penerima punya nama; untuk nomor HP tampilkan ikon orang.
+function initialFor(recipientMasked: string): string | null {
+  const firstLetter = recipientMasked.trim().match(/[A-Za-z]/);
+  return firstLetter ? firstLetter[0].toUpperCase() : null;
 }
 
 export function TransferList({
@@ -50,7 +51,7 @@ export function TransferList({
         >
           <span className="flex min-w-0 items-center gap-3">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-canvas text-sm font-bold text-ink">
-              {initialFor(transfer.recipientMasked)}
+              {initialFor(transfer.recipientMasked) ?? <UserIcon aria-hidden="true" className="size-5 text-muted" />}
             </span>
             <span className="min-w-0">
               <span className="block truncate text-sm font-semibold text-ink">{transfer.recipientMasked}</span>

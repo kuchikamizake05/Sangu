@@ -1,4 +1,4 @@
-.page, .claimPage { min-height:100dvh; background:radial-gradient(circle at 85% 4%,var(--peach),transparent 20rem),var(--canvas); color:var(--ink); }
+.page, .claimPage, .barePage { min-height:100dvh; background:radial-gradient(circle at 85% 4%,var(--peach),transparent 20rem),var(--canvas); color:var(--ink); }
 .page { display:block; padding:0 0 96px; }
 .header { align-items:center; display:flex; justify-content:center; margin:0 auto; max-width:28rem; padding:16px 16px 8px; }
 .brand { color:var(--ink); font-size:1.5rem; font-weight:800; letter-spacing:-.08em; text-decoration:none; }
@@ -14,7 +14,7 @@
 .tabItem[aria-current="page"] { color:var(--orange); }
 .tabItem[aria-current="page"] .tabIcon { color:var(--orange); }
 
-.barePage { background:var(--canvas); min-height:100dvh; padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+.barePage { padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
 .bareContent { margin:0 auto; max-width:28rem; padding:16px; }
 
 .claimPage { align-items:center; display:flex; justify-content:center; padding:16px; }

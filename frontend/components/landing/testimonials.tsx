@@ -30,7 +30,7 @@ export function Testimonials() {
     </div>
     <div className={styles.commMarquee}>
       <div className={styles.commTrack}>
-        {[0, 1].map((copy) => CARDS.map((card, i) => <div key={`${copy}-${i}`} aria-hidden={copy === 1 || undefined} style={{ display: "contents" }}><CardView card={card} /></div>))}
+        {[0, 1].map((copy) => CARDS.map((card, i) => <div key={`${copy}-${i}`} aria-hidden={copy === 1 || undefined} className={styles.contents}><CardView card={card} /></div>))}
       </div>
     </div>
   </section>;

@@ -71,7 +71,7 @@ export default function TransfersPage() {
           type="button"
           aria-pressed={filter === option.value}
           onClick={() => setFilter(option.value)}
-          className={`shrink-0 rounded-[14px] px-4 py-2 text-sm font-bold transition-colors ${filter === option.value ? "bg-ink text-white" : "bg-canvas text-muted"}`}
+          className={`min-h-8 shrink-0 rounded-[10px] px-3 py-1.5 text-xs font-bold transition-colors ${filter === option.value ? "bg-ink text-white" : "bg-canvas text-muted"}`}
         >
           {option.label}
         </button>

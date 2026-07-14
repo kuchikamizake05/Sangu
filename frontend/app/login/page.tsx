@@ -164,7 +164,7 @@ export default function LoginPage() {
       <div className="mx-auto flex min-h-[100dvh] max-w-md flex-col justify-center px-5 py-10">
         <Card>
           {step === "phone" && (
-            <div className="grid gap-5">
+            <div className="grid grid-cols-1 gap-5">
               <div>
                 <p className="text-xs font-extrabold tracking-[.15em] text-brand-deep">MASUK</p>
                 <h1 className="mt-2 text-3xl font-extrabold tracking-[-.05em]">Masuk ke Sangu</h1>
@@ -225,10 +225,10 @@ export default function LoginPage() {
           )}
 
           {step === "otp" && (
-            <div className="grid gap-5">
+            <div className="grid grid-cols-1 gap-5">
               <div>
                 <p className="text-xs font-extrabold tracking-[.15em] text-brand-deep">VERIFIKASI</p>
-                <h1 className="mt-2 text-3xl font-extrabold tracking-[-.05em]">Masukkan kode OTP</h1>
+                <h1 className="mt-2 whitespace-nowrap text-[clamp(1.375rem,6.5vw,1.875rem)] font-extrabold tracking-[-.05em]">Masukkan kode OTP</h1>
                 <p className="mt-2 text-sm text-muted">Kami mengirim kode 6 digit ke {e164Phone}.</p>
               </div>
               <OtpInput value={code} onChange={setCode} />
@@ -237,14 +237,14 @@ export default function LoginPage() {
               </Field>
               {error && <p className="text-sm font-semibold text-danger" role="alert">{error}</p>}
               <Button fullWidth onClick={handleVerifyOtp} disabled={busy}>{busy ? busyLabel : "Verifikasi & masuk"}</Button>
-              <Button fullWidth variant="ghost" onClick={() => sendOtp(e164Phone || normalizePhoneEntry(country, phone))} disabled={busy || resendIn > 0}>
-                {resendIn > 0 ? `Kirim ulang kode (${resendIn}d)` : "Kirim ulang kode"}
+              <Button fullWidth variant="ghost" className="whitespace-nowrap" onClick={() => sendOtp(e164Phone || normalizePhoneEntry(country, phone))} disabled={busy || resendIn > 0}>
+                {resendIn > 0 ? `Kirim ulang dalam ${resendIn} detik` : "Kirim ulang kode"}
               </Button>
             </div>
           )}
 
           {step === "passkey-setup" && (
-            <div className="grid gap-5">
+            <div className="grid grid-cols-1 gap-5">
               <div>
                 <p className="text-xs font-extrabold tracking-[.15em] text-brand-deep">AMANKAN AKUN</p>
                 <h1 className="mt-2 text-3xl font-extrabold tracking-[-.05em]">Aktifkan sidik jari untuk keamanan &amp; masuk cepat</h1>
@@ -313,7 +313,7 @@ function OtpInput({ value, onChange }: { value: string; onChange: (value: string
           onKeyDown={(event) => handleKeyDown(index, event)}
           onPaste={(event) => handlePaste(index, event)}
           aria-label={`Digit ${index + 1}`}
-          className="size-12 rounded-2xl border border-line text-center text-xl font-extrabold focus:border-brand focus:outline-none"
+          className="h-12 min-w-0 flex-1 max-w-12 rounded-2xl border border-line text-center text-xl font-extrabold focus:border-brand focus:outline-none"
         />
       ))}
     </div>
