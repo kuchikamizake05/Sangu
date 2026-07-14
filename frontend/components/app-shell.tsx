@@ -22,6 +22,11 @@ function Brand() {
   return <a className={styles.brand} href="/app" aria-label="Sangu beranda">sangu<span>·</span></a>;
 }
 
+/** Logo untuk halaman penerima — ditaruh DI DALAM card (bukan navbar), penerima tak punya akun untuk dituju. */
+export function CardBrand() {
+  return <p className={`${styles.brand} ${styles.cardBrand}`} aria-label="Sangu">sangu<span>·</span></p>;
+}
+
 function isCurrentPath(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
@@ -46,7 +51,7 @@ export function AppShell({ children, mode = "sender", variant = "default" }: App
   const pathname = usePathname() ?? "/";
 
   if (mode === "claim") {
-    return <main className={styles.claimPage} data-mode={mode}><header className={styles.claimHeader}><Brand /></header><div className={styles.claimContent}>{children}</div></main>;
+    return <main className={styles.claimPage} data-mode={mode}><div className={styles.claimContent}>{children}</div></main>;
   }
 
   if (variant === "bare") {
