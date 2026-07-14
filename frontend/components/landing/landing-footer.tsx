@@ -12,7 +12,7 @@ export function LandingFooter() {
       <div className={styles.footerGrid}>
         <div>
           <p className={styles.footerBrand}>sangu<span>·</span></p>
-          <p className={styles.footerTagline}>Kirim pulang, semudah kirim pesan. Remittance non-custodial untuk perantau Indonesia, di jaringan Stellar.</p>
+          <p className={styles.footerTagline}>Kirim pulang, semudah kirim pesan. Layanan kirim uang untuk perantau Indonesia.</p>
         </div>
         {COLUMNS.map((col) => <nav key={col.heading} className={styles.footerCol} aria-label={col.heading}>
           <h2>{col.heading}</h2>
@@ -20,7 +20,7 @@ export function LandingFooter() {
         </nav>)}
       </div>
       <div className={styles.footerLegal}>
-        <p>© 2026 Sangu. Aplikasi non-custodial di jaringan Stellar — versi demo, bukan layanan keuangan berizin.</p>
+        <p>© 2026 Sangu. Uangmu hanya bisa dibuka dari perangkatmu sendiri — versi demo, bukan layanan keuangan berizin.</p>
         <p>Bahasa: Indonesia</p>
       </div>
     </div>

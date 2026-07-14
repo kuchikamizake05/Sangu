@@ -12,7 +12,7 @@ const jakarta = Plus_Jakarta_Sans({
 
 export const metadata = {
   title: "Sangu — Kirim pulang, semudah kirim pesan",
-  description: "Remittance PMI non-custodial di Stellar.",
+  description: "Kirim uang ke keluarga di Indonesia — cepat, aman, biaya nyaris nol.",
 };
 
 export const viewport: Viewport = {

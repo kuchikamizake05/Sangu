@@ -16,7 +16,7 @@ type StripCard = { image: StaticImageData; alt: string };
 
 const CARDS: StripCard[] = [
   { image: hero3Img, alt: "Perempuan mengirim uang dengan kurs asli dari rooftop kota." },
-  { image: kunciImg, alt: "Layar pengaturan keamanan dan passkey di ponsel." },
+  { image: kunciImg, alt: "Layar pengaturan keamanan dan sidik jari di ponsel." },
   { image: hero1Img, alt: "Perempuan menerima pembayaran di ponselnya." },
   { image: sanguBulananImg, alt: "Mengirim nominal sangu secara terjadwal tiap bulan." },
   { image: keluargaKlaimImg, alt: "Ratna di Indonesia menerima transfer instan lewat link." },

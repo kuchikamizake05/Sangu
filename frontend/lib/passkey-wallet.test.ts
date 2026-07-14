@@ -2,7 +2,7 @@ import { getPasskeyConfig, signUnsignedXdr } from "./passkey-wallet";
 
 describe("passkey wallet adapter", () => {
   it("rejects signing when public smart-wallet configuration is incomplete", () => {
-    expect(() => getPasskeyConfig({ rpcUrl: "", networkPassphrase: "test", walletWasmHash: "hash" })).toThrow("NEXT_PUBLIC_STELLAR_RPC_URL");
+    expect(() => getPasskeyConfig({ rpcUrl: "", networkPassphrase: "test", walletWasmHash: "hash" })).toThrow("Fitur sidik jari belum dapat digunakan");
   });
 
   it("connects the passkey wallet and serializes the signed transaction to XDR", async () => {

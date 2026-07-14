@@ -70,29 +70,29 @@ export default async function authRoutes(app: FastifyInstance) {
   // ── Daftar / recovery via OTP ──
   app.post("/api/auth/otp/request", async (req, reply): Promise<unknown> => {
     const { phone } = req.body as { phone?: string };
-    if (!E164.test(phone ?? "")) return badRequest(reply, "phone harus format E.164 (+62...)");
+    if (!E164.test(phone ?? "")) return badRequest(reply, "Nomor HP harus diawali kode negara, contoh +62…");
     const hmac = phoneHmac(phone!);
     if (otpRateLimited(hmac)) {
       reply.code(429);
-      return { error: { code: "OTP_RATE_LIMITED", message: "terlalu sering — coba lagi sebentar lagi" } };
+      return { error: { code: "OTP_RATE_LIMITED", message: "Terlalu sering meminta kode. Tunggu sebentar lalu coba lagi." } };
     }
     return sendAuthOtp(hmac, phone!);
   });
 
   app.post("/api/auth/otp/verify", async (req, reply): Promise<unknown> => {
     const { phone, code, name } = req.body as { phone?: string; code?: string; name?: string };
-    if (!E164.test(phone ?? "")) return badRequest(reply, "phone harus format E.164 (+62...)");
+    if (!E164.test(phone ?? "")) return badRequest(reply, "Nomor HP harus diawali kode negara, contoh +62…");
     const hmac = phoneHmac(phone!);
     const ok = await verifyAuthOtpCode(hmac, phone!, String(code ?? ""));
     if (!ok) {
       reply.code(401);
-      return { error: { code: "OTP_INVALID", message: "kode OTP salah atau kedaluwarsa" } };
+      return { error: { code: "OTP_INVALID", message: "Kode OTP salah atau kedaluwarsa." } };
     }
 
     let sender = await getSenderByPhoneHmac(hmac);
     if (!sender) {
       const trimmed = (name ?? "").trim();
-      if (!trimmed) return badRequest(reply, "name wajib untuk pendaftaran pertama");
+      if (!trimmed) return badRequest(reply, "Isi nama dulu untuk pendaftaran pertama.");
       sender = {
         senderId: crypto.randomUUID(),
         phoneHmac: hmac,
@@ -119,7 +119,7 @@ export default async function authRoutes(app: FastifyInstance) {
       const sender = await getSenderById(req.user.senderId);
       if (!sender) {
         reply.code(401);
-        return { error: { code: "UNAUTHORIZED", message: "sender tidak ditemukan" } };
+        return { error: { code: "UNAUTHORIZED", message: "Akun tidak ditemukan." } };
       }
       const options = await generateRegistrationOptions({
         rpName: RP_NAME,
@@ -141,13 +141,13 @@ export default async function authRoutes(app: FastifyInstance) {
         attestation?: RegistrationResponseJSON;
         walletAddress?: string;
       };
-      if (!attestation || !walletAddress) return badRequest(reply, "attestation dan walletAddress wajib");
+      if (!attestation || !walletAddress) return badRequest(reply, "Data aktivasi sidik jari tidak lengkap. Coba lagi.");
 
       const challenge = attestation && challengeFromClientData(attestation);
       const consumed = challenge ? await consumeAuthChallenge(challenge) : { ok: false, senderId: null };
       if (!consumed.ok || consumed.senderId !== req.user.senderId) {
         reply.code(400);
-        return { error: { code: "PASSKEY_INVALID", message: "challenge tidak valid atau kedaluwarsa" } };
+        return { error: { code: "PASSKEY_INVALID", message: "Verifikasi kedaluwarsa. Coba lagi." } };
       }
 
       try {
@@ -168,7 +168,7 @@ export default async function authRoutes(app: FastifyInstance) {
       } catch (err) {
         req.log.warn({ err }, "verifikasi registrasi passkey gagal");
         reply.code(400);
-        return { error: { code: "PASSKEY_INVALID", message: "attestation tidak dapat diverifikasi" } };
+        return { error: { code: "PASSKEY_INVALID", message: "Sidik jari belum dapat diverifikasi. Coba lagi." } };
       }
     },
   );
@@ -176,11 +176,11 @@ export default async function authRoutes(app: FastifyInstance) {
   // ── Login harian via passkey ──
   app.post("/api/auth/passkey/login/options", async (req, reply): Promise<unknown> => {
     const { phone } = req.body as { phone?: string };
-    if (!E164.test(phone ?? "")) return badRequest(reply, "phone harus format E.164 (+62...)");
+    if (!E164.test(phone ?? "")) return badRequest(reply, "Nomor HP harus diawali kode negara, contoh +62…");
     const sender = await getSenderByPhoneHmac(phoneHmac(phone!));
     if (!sender || !sender.passkeyCredentialId) {
       reply.code(404);
-      return { error: { code: "SENDER_NOT_FOUND", message: "akun atau passkey tidak ditemukan — masuk via OTP" } };
+      return { error: { code: "SENDER_NOT_FOUND", message: "Akun atau sidik jari tidak ditemukan. Masuk dengan kode OTP dulu." } };
     }
     const options = await generateAuthenticationOptions({
       rpID: RP_ID,
@@ -193,18 +193,18 @@ export default async function authRoutes(app: FastifyInstance) {
 
   app.post("/api/auth/passkey/login/verify", async (req, reply): Promise<unknown> => {
     const { phone, assertion } = req.body as { phone?: string; assertion?: AuthenticationResponseJSON };
-    if (!E164.test(phone ?? "") || !assertion) return badRequest(reply, "phone dan assertion wajib");
+    if (!E164.test(phone ?? "") || !assertion) return badRequest(reply, "Data masuk tidak lengkap. Coba lagi.");
     const sender = await getSenderByPhoneHmac(phoneHmac(phone!));
     if (!sender || !sender.passkeyCredentialId || !sender.passkeyPublicKey) {
       reply.code(404);
-      return { error: { code: "SENDER_NOT_FOUND", message: "akun atau passkey tidak ditemukan" } };
+      return { error: { code: "SENDER_NOT_FOUND", message: "Akun atau sidik jari tidak ditemukan." } };
     }
 
     const challenge = challengeFromClientData(assertion);
     const consumed = challenge ? await consumeAuthChallenge(challenge) : { ok: false, senderId: null };
     if (!consumed.ok || consumed.senderId !== sender.senderId) {
       reply.code(401);
-      return { error: { code: "PASSKEY_INVALID", message: "challenge tidak valid atau kedaluwarsa" } };
+      return { error: { code: "PASSKEY_INVALID", message: "Verifikasi kedaluwarsa. Coba lagi." } };
     }
 
     try {
@@ -226,7 +226,7 @@ export default async function authRoutes(app: FastifyInstance) {
     } catch (err) {
       req.log.warn({ err }, "verifikasi login passkey gagal");
       reply.code(401);
-      return { error: { code: "PASSKEY_INVALID", message: "assertion tidak dapat diverifikasi" } };
+      return { error: { code: "PASSKEY_INVALID", message: "Sidik jari belum dapat diverifikasi. Coba lagi." } };
     }
   });
 
@@ -235,7 +235,7 @@ export default async function authRoutes(app: FastifyInstance) {
     const sender = await getSenderById(req.user.senderId);
     if (!sender) {
       reply.code(401);
-      return { error: { code: "UNAUTHORIZED", message: "sender tidak ditemukan" } };
+      return { error: { code: "UNAUTHORIZED", message: "Akun tidak ditemukan." } };
     }
     return { ...senderView(sender), walletAddress: sender.walletAddress };
   });

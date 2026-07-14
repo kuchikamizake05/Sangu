@@ -22,9 +22,9 @@ type Row = {
 
 const ROWS: Row[] = [
   {
-    Icon: KeyIcon, title: "Kunci transfer sekali sentuh", copy: "Konfirmasi tiap kiriman dengan sidik jari atau wajah lewat passkey.",
+    Icon: KeyIcon, title: "Kunci transfer sekali sentuh", copy: "Konfirmasi tiap kiriman dengan sidik jari atau wajah.",
     gradient: "linear-gradient(160deg,#8a5a44,#3b2317 70%)",
-    image: kunciImg, alt: "Kartu Sangu terkunci di aplikasi, dibuka dengan passkey.", scale: 1.12,
+    image: kunciImg, alt: "Kartu Sangu terkunci di aplikasi, dibuka dengan sidik jari.", scale: 1.12,
   },
   {
     Icon: BellIcon, title: "Notifikasi instan", copy: "Tahu persis saat uangmu bergerak, dari berangkat sampai diklaim.",
@@ -32,14 +32,14 @@ const ROWS: Row[] = [
     image: notifImg, alt: "Notifikasi transfer masuk dan keluar di layar ponsel.",
   },
   {
-    Icon: EyeIcon, title: "Terlindungi 24/7", copy: "Setiap transaksi tercatat publik di jaringan Stellar yang teraudit.",
+    Icon: EyeIcon, title: "Terlindungi 24/7", copy: "Setiap transaksi tercatat permanen dan bisa diperiksa kapan pun.",
     gradient: "linear-gradient(160deg,#5a8a4a,#1e3b17 70%)",
     image: protectedImg, alt: "Peringatan verifikasi login aktivitas baru di akun.",
   },
   {
-    Icon: ShieldIcon, title: "Kendali penuh di tanganmu", copy: "Non-custodial: tidak ada yang bisa menyentuh uangmu, bahkan Sangu.",
+    Icon: ShieldIcon, title: "Kendali penuh di tanganmu", copy: "Tidak ada yang bisa menyentuh uangmu, bahkan Sangu.",
     gradient: "linear-gradient(160deg,#7a5a8a,#2d173b 70%)",
-    image: walletImg, alt: "Keluarga tersenyum dengan lapisan keamanan passkey dan sidik jari.",
+    image: walletImg, alt: "Keluarga tersenyum dengan lapisan keamanan sidik jari.",
   },
 ];
 
@@ -57,7 +57,7 @@ export function Security() {
             <span><h3>{r.title}</h3><p>{r.copy}</p></span>
           </button>)}
         </div>
-        <p className={styles.secLegal}>Sangu adalah aplikasi non-custodial di jaringan Stellar. Kunci tersimpan sebagai passkey di perangkatmu dan tidak pernah menyentuh server kami. Versi demo — bukan layanan keuangan berizin.</p>
+        <p className={styles.secLegal}>Kunci keamanan uangmu tersimpan di perangkatmu dan tidak pernah menyentuh server kami — hanya kamu yang bisa menggerakkan uangmu. Versi demo — bukan layanan keuangan berizin.</p>
       </div>
       <div key={active} className={styles.secVisual} style={{ background: row.gradient }}>
         <Image src={row.image} alt={row.alt} fill priority={active === 0} sizes="(max-width: 900px) 100vw, 50vw" className={styles.secPhoto} style={{ scale: row.scale ?? 1, objectFit: row.fit ?? "cover" }} />

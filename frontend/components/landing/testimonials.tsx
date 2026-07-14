@@ -10,7 +10,7 @@ const CARDS: Card[] = [
   { text: "Gajian tanggal 25, tanggal 25 juga sampai di rumah. Sangu Bulanan jalan sendiri.", by: "Budi", flag: "🇲🇾 MY" },
   { text: "Sekali atur jadwal, tiap bulan berangkat otomatis. Aku nggak pernah lupa kirim sangu lagi.", by: "Hendra", flag: "🇦🇪 AE" },
   { text: "Yang kukirim, itu yang diterima. Nggak ada potongan aneh-aneh di tengah jalan.", by: "Rina", flag: "🇹🇼 TW" },
-  { text: "Passkey-nya bikin tenang. Nggak ada password yang bisa dibobol orang.", by: "Dewi", flag: "🇸🇦 SA" },
+  { text: "Login sidik jarinya bikin tenang. Nggak ada password yang bisa dibobol orang.", by: "Dewi", flag: "🇸🇦 SA" },
 ];
 
 function CardView({ card }: { card: Card }) {

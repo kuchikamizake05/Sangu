@@ -16,9 +16,17 @@ interface PasskeyWallet {
 type WalletFactory = (config: PasskeyConfig) => PasskeyWallet;
 
 export function getPasskeyConfig(config: PasskeyConfig): PasskeyConfig {
-  if (!config.rpcUrl) throw new Error("NEXT_PUBLIC_STELLAR_RPC_URL belum diatur.");
-  if (!config.networkPassphrase) throw new Error("NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE belum diatur.");
-  if (!config.walletWasmHash) throw new Error("NEXT_PUBLIC_SMART_WALLET_WASM_HASH belum diatur.");
+  // Nama env yang hilang dicatat ke console untuk developer; pesan yang dilempar (dan bisa
+  // tampil di UI) harus bebas istilah teknis.
+  const missing = [
+    !config.rpcUrl && "NEXT_PUBLIC_STELLAR_RPC_URL",
+    !config.networkPassphrase && "NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE",
+    !config.walletWasmHash && "NEXT_PUBLIC_SMART_WALLET_WASM_HASH",
+  ].filter(Boolean);
+  if (missing.length > 0) {
+    console.error(`Konfigurasi belum lengkap: ${missing.join(", ")} belum diatur.`);
+    throw new Error("Fitur sidik jari belum dapat digunakan saat ini. Coba lagi nanti.");
+  }
   return config;
 }
 

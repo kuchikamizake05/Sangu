@@ -8,7 +8,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { getTransferDetail, type TransferDetail } from "@/lib/api";
 
 const stages = ["CREATED", "DEPOSITED", "CLAIMED", "PAID_OUT"] as const;
-const labels = { CREATED: "Transfer dibuat", DEPOSITED: "Uang aman di escrow", CLAIMED: "Penerima memulai pencairan", PAID_OUT: "Dana dicairkan", REFUNDED: "Dana dikembalikan", EXPIRED: "Transfer kedaluwarsa" } as const;
+const labels = { CREATED: "Transfer dibuat", DEPOSITED: "Uang kamu diamankan", CLAIMED: "Penerima memulai pencairan", PAID_OUT: "Dana dicairkan", REFUNDED: "Dana dikembalikan", EXPIRED: "Transfer kedaluwarsa" } as const;
 const anchorTerminalStatuses = new Set(["completed", "refunded", "expired", "error", "no_market"]);
 
 export default function TransferDetailPage({ params }: { params: Promise<{ transferId: string }> }) {
@@ -65,19 +65,19 @@ export default function TransferDetailPage({ params }: { params: Promise<{ trans
 function AnchorStatus({ anchor }: { anchor: NonNullable<TransferDetail["anchor"]> }) {
   const { title, detail, tone } = anchorPresentation(anchor);
   return <Card className={`mt-6 border ${tone === "error" ? "border-danger bg-danger-wash" : "border-peach bg-peach-wash"}`}>
-    <div role="status" aria-live="polite" aria-label="Status pencairan anchor">
-      <p className="text-xs font-extrabold tracking-[.15em] text-brand-deep">PENCAIRAN ANCHOR</p>
+    <div role="status" aria-live="polite" aria-label="Status pencairan">
+      <p className="text-xs font-extrabold tracking-[.15em] text-brand-deep">STATUS PENCAIRAN</p>
       <h2 className="mt-2 text-xl font-extrabold">{title}</h2>
       <p className="mt-1 text-sm text-muted">{detail}</p>
-      <p className="mt-4 rounded-xl bg-white/70 px-3 py-2 text-xs font-semibold text-muted">Referensi anchor: {anchor.txId}</p>
+      <p className="mt-4 rounded-xl bg-white/70 px-3 py-2 text-xs font-semibold text-muted">Nomor referensi: {anchor.txId}</p>
     </div>
   </Card>;
 }
 
 function anchorPresentation(anchor: NonNullable<TransferDetail["anchor"]>) {
-  if (anchor.status === "completed") return { title: "Pencairan melalui anchor selesai", detail: "Anchor sudah mengonfirmasi pencairan kepada penerima.", tone: "success" };
-  if (["error", "refunded", "expired", "no_market"].includes(anchor.status ?? "")) return { title: "Pencairan anchor memerlukan perhatian", detail: "Anchor belum dapat menyelesaikan pencairan. Periksa referensi transaksi untuk tindak lanjut.", tone: "error" };
-  if (anchor.paymentTxHash) return { title: "Pembayaran ke anchor terkirim", detail: "Backend sudah mengirim pembayaran ke anchor dan menunggu konfirmasi akhir.", tone: "pending" };
-  if (anchor.status === "pending_user_transfer_start") return { title: "Siap membayar ke anchor", detail: "Penerima telah menyelesaikan langkah anchor. Backend akan membayar otomatis.", tone: "pending" };
-  return { title: "Menunggu verifikasi penerima", detail: "Penerima perlu menyelesaikan langkah verifikasi anchor sebelum pembayaran dapat dilanjutkan.", tone: "pending" };
+  if (anchor.status === "completed") return { title: "Pencairan selesai", detail: "Mitra pencairan sudah mengonfirmasi uang diterima penerima.", tone: "success" };
+  if (["error", "refunded", "expired", "no_market"].includes(anchor.status ?? "")) return { title: "Pencairan memerlukan perhatian", detail: "Pencairan belum dapat diselesaikan. Simpan nomor referensi di bawah untuk tindak lanjut.", tone: "error" };
+  if (anchor.paymentTxHash) return { title: "Pembayaran terkirim", detail: "Sangu sudah mengirim pembayaran dan menunggu konfirmasi akhir.", tone: "pending" };
+  if (anchor.status === "pending_user_transfer_start") return { title: "Siap dibayarkan", detail: "Penerima sudah menyelesaikan verifikasi. Sangu akan membayar otomatis.", tone: "pending" };
+  return { title: "Menunggu verifikasi penerima", detail: "Penerima perlu menyelesaikan langkah verifikasi sebelum pembayaran dilanjutkan.", tone: "pending" };
 }

@@ -28,7 +28,7 @@ import {
 
 function notFound(reply: FastifyReply) {
   reply.code(404);
-  return { error: { code: "NOT_FOUND", message: "link claim tidak dikenal" } };
+  return { error: { code: "NOT_FOUND", message: "Link ini tidak dikenal. Periksa lagi pesan yang kamu terima." } };
 }
 
 /** Status efektif: PENDING yang sudah lewat expiry ditampilkan EXPIRED (keeper akan me-refund). */
@@ -71,7 +71,7 @@ export default async function claimRoutes(app: FastifyInstance) {
     if (!t) return notFound(reply);
     if (effectiveStatus(t) !== "PENDING") {
       reply.code(409);
-      return { error: { code: "NOT_CLAIMABLE", message: "transfer sudah cair/expired" } };
+      return { error: { code: "NOT_CLAIMABLE", message: "Kiriman ini sudah dicairkan atau kedaluwarsa." } };
     }
     // nomor HP diambil dari DB backend (via token), TIDAK dari input publik
     return sendOtp(token, t.phoneE164);
@@ -85,7 +85,7 @@ export default async function claimRoutes(app: FastifyInstance) {
     const ok = await verifyOtpCode(token, t.phoneE164, String(code ?? ""));
     if (!ok) {
       reply.code(401);
-      return { error: { code: "OTP_INVALID", message: "kode OTP salah atau kedaluwarsa" } };
+      return { error: { code: "OTP_INVALID", message: "Kode OTP salah atau kedaluwarsa." } };
     }
     return { ok: true, claimSession: await createClaimSession(token) };
   });
@@ -99,12 +99,12 @@ export default async function claimRoutes(app: FastifyInstance) {
     // payout hanya boleh dipicu pemegang sesi OTP yang valid
     if (!body.claimSession || !(await validateClaimSession(token, body.claimSession))) {
       reply.code(401);
-      return { error: { code: "SESSION_INVALID", message: "verifikasi OTP dulu" } };
+      return { error: { code: "SESSION_INVALID", message: "Verifikasi kode OTP dulu sebelum mencairkan." } };
     }
     const status = effectiveStatus(t);
     if (status !== "PENDING") {
       reply.code(409);
-      return { error: { code: "NOT_CLAIMABLE", message: `status transfer: ${status}` } };
+      return { error: { code: "NOT_CLAIMABLE", message: "Kiriman ini tidak dapat dicairkan saat ini." } };
     }
 
     // 1) claim on-chain → dana USDC pindah escrow → akun settlement (allowlist)
