@@ -81,6 +81,15 @@ describe("LoginPage", () => {
     fireEvent.change(screen.getByLabelText("Nomor HP"), { target: { value: "+852 1234 5678" } });
 
     expect(screen.getByLabelText("Kode negara")).toHaveValue("HK");
-    expect(screen.getByLabelText("Nomor HP")).toHaveValue("12345678");
+    expect(screen.getByLabelText("Nomor HP")).toHaveValue("1234 - 567 - 8");
+  });
+
+  it("shows an inline validity check once the local number is complete", () => {
+    render(<LoginPage />);
+
+    fireEvent.change(screen.getByLabelText("Kode negara"), { target: { value: "MY" } });
+    fireEvent.change(screen.getByLabelText("Nomor HP"), { target: { value: "0123456789" } });
+
+    expect(screen.getByLabelText("Nomor HP valid")).toBeInTheDocument();
   });
 });
