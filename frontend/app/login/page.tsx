@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Field, TextInput } from "@/components/ui/field";
 import { ApiError, getPasskeyLoginOptions, requestAuthOtp, verifyAuthOtp, type SenderProfile } from "@/lib/api";
 import { getLastPhone, setLastPhone, setSession, setWalletInfo } from "@/lib/auth-session";
+import { getPhoneCountry, normalizePhoneEntry, parsePhoneEntry, PHONE_COUNTRIES, type PhoneCountry } from "@/lib/phone-number";
 import { isE164Phone } from "@/lib/send-flow";
 import { loginWithPasskey, registerPasskeyAndWallet } from "@/lib/passkey-wallet";
 
@@ -29,7 +30,9 @@ function messageFor(error: unknown, fallback: string): string {
 
 export default function LoginPage() {
   const [step, setStep] = useState<Step>("phone");
+  const [country, setCountry] = useState<PhoneCountry>(getPhoneCountry("ID"));
   const [phone, setPhone] = useState("");
+  const [e164Phone, setE164Phone] = useState("");
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [sender, setSender] = useState<SenderProfile | null>(null);
@@ -41,7 +44,11 @@ export default function LoginPage() {
 
   useEffect(() => {
     const stored = getLastPhone();
-    if (stored) setPhone(stored);
+    if (stored) {
+      const parsed = parsePhoneEntry(stored);
+      setCountry(parsed.country);
+      setPhone(parsed.localNumber);
+    }
   }, []);
 
   useEffect(() => {
@@ -50,10 +57,10 @@ export default function LoginPage() {
     return () => window.clearInterval(timer);
   }, [step, resendIn]);
 
-  async function sendOtp() {
+  async function sendOtp(phoneNumber: string) {
     try {
-      await requestAuthOtp(phone);
-      setLastPhone(phone);
+      await requestAuthOtp(phoneNumber);
+      setLastPhone(phoneNumber);
       setStep("otp");
       setResendIn(RESEND_SECONDS);
       setError(null);
@@ -63,24 +70,26 @@ export default function LoginPage() {
   }
 
   async function handleContinue() {
-    if (!isE164Phone(phone)) {
+    const phoneNumber = normalizePhoneEntry(country, phone);
+    if (!isE164Phone(phoneNumber)) {
       setError("Masukkan nomor HP dengan format internasional, mis. +60 / +852 / +62…");
       return;
     }
+    setE164Phone(phoneNumber);
     setError(null);
     setShowSmsFallback(false);
     setBusy(true);
     setBusyLabel("Memeriksa akun…");
     try {
-      await getPasskeyLoginOptions(phone);
+      await getPasskeyLoginOptions(phoneNumber);
       setBusyLabel("Masuk dengan sidik jari…");
-      const { token, sender: loggedInSender } = await loginWithPasskey(phone);
+      const { token, sender: loggedInSender } = await loginWithPasskey(phoneNumber);
       setSession({ token, sender: loggedInSender });
-      setLastPhone(phone);
+      setLastPhone(phoneNumber);
       afterAuthSuccess(loggedInSender);
     } catch (err) {
       if (err instanceof ApiError && err.code === "SENDER_NOT_FOUND") {
-        await sendOtp();
+        await sendOtp(phoneNumber);
       } else {
         setError(messageFor(err, "Masuk dengan sidik jari belum berhasil."));
         setShowSmsFallback(true);
@@ -108,9 +117,10 @@ export default function LoginPage() {
     setBusy(true);
     setBusyLabel("Memverifikasi kode…");
     try {
-      const { token, sender: verifiedSender } = await verifyAuthOtp(phone, code, name.trim() || undefined);
+      const phoneNumber = e164Phone || normalizePhoneEntry(country, phone);
+      const { token, sender: verifiedSender } = await verifyAuthOtp(phoneNumber, code, name.trim() || undefined);
       setSession({ token, sender: verifiedSender });
-      setLastPhone(phone);
+      setLastPhone(phoneNumber);
       afterAuthSuccess(verifiedSender);
     } catch (err) {
       setError(messageFor(err, "Kode OTP tidak dapat diverifikasi."));
@@ -135,6 +145,16 @@ export default function LoginPage() {
     }
   }
 
+  function handlePhoneChange(value: string) {
+    if (value.trim().startsWith("+")) {
+      const parsed = parsePhoneEntry(value);
+      setCountry(parsed.country);
+      setPhone(parsed.localNumber);
+      return;
+    }
+    setPhone(value);
+  }
+
   return (
     <AppShell variant="bare">
       <div className="mx-auto flex min-h-[100dvh] max-w-md flex-col justify-center px-5 py-10">
@@ -146,18 +166,24 @@ export default function LoginPage() {
                 <h1 className="mt-2 text-3xl font-extrabold tracking-[-.05em]">Masuk ke Sangu</h1>
                 <p className="mt-2 text-sm text-muted">Pakai nomor HP-mu. Kalau perangkat ini sudah dikenali, cukup sidik jari saja.</p>
               </div>
-              <Field label="Nomor HP" hint="Format internasional, mis. +60123456789 / +85212345678 / +62812…">
-                <TextInput
-                  inputMode="tel"
-                  placeholder="+60 / +852 / +62…"
-                  value={phone}
-                  onChange={(event) => setPhone(event.target.value)}
-                />
+              <Field label="Nomor HP" hint={country.iso === "OTHER" ? "Masukkan nomor lengkap dengan awalan +." : `Masukkan nomor lokal. Awalan 0 otomatis menjadi ${country.dialCode}.`}>
+                <div className="flex gap-2">
+                  <select aria-label="Kode negara" className="min-h-12 shrink-0 rounded-xl border border-line bg-white px-2 text-sm font-bold text-ink focus:border-brand focus:outline-none" value={country.iso} onChange={(event) => setCountry(getPhoneCountry(event.target.value))}>
+                    {PHONE_COUNTRIES.map((item) => <option key={item.iso} value={item.iso}>{item.flag} {item.label} {item.dialCode}</option>)}
+                  </select>
+                  <TextInput
+                    aria-label="Nomor HP"
+                    inputMode="tel"
+                    placeholder={country.iso === "OTHER" ? "+55 11 99876 5432" : "Contoh: 0812 3456 7890"}
+                    value={phone}
+                    onChange={(event) => handlePhoneChange(event.target.value)}
+                  />
+                </div>
               </Field>
               {error && <p className="text-sm font-semibold text-danger" role="alert">{error}</p>}
               <Button fullWidth onClick={handleContinue} disabled={busy}>{busy ? busyLabel : "Lanjutkan"}</Button>
               {showSmsFallback && (
-                <Button fullWidth variant="secondary" onClick={sendOtp} disabled={busy}>Masuk dengan kode SMS</Button>
+                <Button fullWidth variant="secondary" onClick={() => sendOtp(e164Phone || normalizePhoneEntry(country, phone))} disabled={busy}>Masuk dengan kode SMS</Button>
               )}
             </div>
           )}
@@ -167,7 +193,7 @@ export default function LoginPage() {
               <div>
                 <p className="text-xs font-extrabold tracking-[.15em] text-brand-deep">VERIFIKASI</p>
                 <h1 className="mt-2 text-3xl font-extrabold tracking-[-.05em]">Masukkan kode OTP</h1>
-                <p className="mt-2 text-sm text-muted">Kami mengirim kode 6 digit ke {phone}.</p>
+                <p className="mt-2 text-sm text-muted">Kami mengirim kode 6 digit ke {e164Phone}.</p>
               </div>
               <OtpInput value={code} onChange={setCode} />
               <Field label="Nama lengkap" hint="Isi kalau ini pertama kali kamu daftar.">
@@ -175,7 +201,7 @@ export default function LoginPage() {
               </Field>
               {error && <p className="text-sm font-semibold text-danger" role="alert">{error}</p>}
               <Button fullWidth onClick={handleVerifyOtp} disabled={busy}>{busy ? busyLabel : "Verifikasi & masuk"}</Button>
-              <Button fullWidth variant="ghost" onClick={sendOtp} disabled={busy || resendIn > 0}>
+              <Button fullWidth variant="ghost" onClick={() => sendOtp(e164Phone || normalizePhoneEntry(country, phone))} disabled={busy || resendIn > 0}>
                 {resendIn > 0 ? `Kirim ulang kode (${resendIn}d)` : "Kirim ulang kode"}
               </Button>
             </div>
