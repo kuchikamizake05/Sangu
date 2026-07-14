@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
+import { useT } from "@/lib/i18n/locale-context";
 import styles from "./app-shell.module.css";
 import { ActivityIcon, CalendarIcon, HomeIcon, SendIcon, UserIcon } from "./ui/icons";
 
@@ -11,20 +12,27 @@ type AppShellProps = {
   variant?: "default" | "bare";
 };
 
-const navigation = [
-  { href: "/app", label: "Beranda", Icon: HomeIcon },
-  { href: "/transfers", label: "Aktivitas", Icon: ActivityIcon },
-  { href: "/recurring", label: "Bulanan", Icon: CalendarIcon },
-  { href: "/account", label: "Akun", Icon: UserIcon },
-];
+type NavItem = { href: string; label: string; Icon: typeof HomeIcon };
+
+function useNavigation(): NavItem[] {
+  const t = useT();
+  return [
+    { href: "/app", label: t("common.navHome"), Icon: HomeIcon },
+    { href: "/transfers", label: t("common.navActivity"), Icon: ActivityIcon },
+    { href: "/recurring", label: t("common.navMonthly"), Icon: CalendarIcon },
+    { href: "/account", label: t("common.navAccount"), Icon: UserIcon },
+  ];
+}
 
 function Brand() {
-  return <a className={styles.brand} href="/app" aria-label="Sangu beranda">sangu<span>·</span></a>;
+  const t = useT();
+  return <a className={styles.brand} href="/app" aria-label={t("common.brandAriaLabel")}>sangu<span>·</span></a>;
 }
 
 /** Logo untuk halaman penerima — ditaruh DI DALAM card (bukan navbar), penerima tak punya akun untuk dituju. */
 export function CardBrand() {
-  return <p className={`${styles.brand} ${styles.cardBrand}`} aria-label="Sangu">sangu<span>·</span></p>;
+  const t = useT();
+  return <p className={`${styles.brand} ${styles.cardBrand}`} aria-label={t("common.brandOnlyAriaLabel")}>sangu<span>·</span></p>;
 }
 
 function isCurrentPath(pathname: string, href: string) {
@@ -32,8 +40,10 @@ function isCurrentPath(pathname: string, href: string) {
 }
 
 function TabBar({ pathname }: { pathname: string }) {
+  const t = useT();
+  const navigation = useNavigation();
   return (
-    <nav className={styles.tabBar} aria-label="Navigasi aplikasi">
+    <nav className={styles.tabBar} aria-label={t("common.navAriaLabel")}>
       {navigation.map(({ href, label, Icon }) => {
         const current = isCurrentPath(pathname, href);
         return (
@@ -48,12 +58,14 @@ function TabBar({ pathname }: { pathname: string }) {
 }
 
 function Sidebar({ pathname }: { pathname: string }) {
+  const t = useT();
+  const navigation = useNavigation();
   const primaryNav = navigation.filter((item) => item.href !== "/account");
   const accountNav = navigation.filter((item) => item.href === "/account");
 
   return (
-    <nav className={styles.sidebar} aria-label="Navigasi aplikasi (desktop)">
-      <a className={`${styles.brand} ${styles.sidebarBrand}`} href="/app" aria-label="Sangu beranda">sangu<span>·</span></a>
+    <nav className={styles.sidebar} aria-label={t("common.navDesktopAriaLabel")}>
+      <a className={`${styles.brand} ${styles.sidebarBrand}`} href="/app" aria-label={t("common.brandAriaLabel")}>sangu<span>·</span></a>
       {primaryNav.map(({ href, label, Icon }) => (
         <a key={href} href={href} aria-current={isCurrentPath(pathname, href) ? "page" : undefined} className={styles.sideItem}>
           <Icon className={styles.sideIcon} />
@@ -62,7 +74,7 @@ function Sidebar({ pathname }: { pathname: string }) {
       ))}
       <a href="/send" className={styles.sideCta}>
         <SendIcon className={styles.sideIcon} />
-        <span>Kirim</span>
+        <span>{t("common.navSend")}</span>
       </a>
       <div className={styles.sideSpacer} />
       {accountNav.map(({ href, label, Icon }) => (

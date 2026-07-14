@@ -10,6 +10,7 @@ import { getLastPhone, setLastPhone, setSession, setWalletInfo } from "@/lib/aut
 import { formatLocalPhone, getPhoneCountry, normalizePhoneEntry, parsePhoneEntry, PHONE_COUNTRIES, type PhoneCountry } from "@/lib/phone-number";
 import { isE164Phone } from "@/lib/send-flow";
 import { loginWithPasskey, registerPasskeyAndWallet } from "@/lib/passkey-wallet";
+import { useT } from "@/lib/i18n/locale-context";
 
 type Step = "phone" | "otp" | "passkey-setup";
 
@@ -29,6 +30,7 @@ function messageFor(error: unknown, fallback: string): string {
 }
 
 export default function LoginPage() {
+  const t = useT();
   const [step, setStep] = useState<Step>("phone");
   const [country, setCountry] = useState<PhoneCountry>(getPhoneCountry("ID"));
   const [countryOpen, setCountryOpen] = useState(false);
@@ -39,7 +41,7 @@ export default function LoginPage() {
   const [sender, setSender] = useState<SenderProfile | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [busyLabel, setBusyLabel] = useState("Memproses…");
+  const [busyLabel, setBusyLabel] = useState(t("login.processing"));
   const [showSmsFallback, setShowSmsFallback] = useState(false);
   const [resendIn, setResendIn] = useState(0);
 
@@ -66,24 +68,24 @@ export default function LoginPage() {
       setResendIn(RESEND_SECONDS);
       setError(null);
     } catch (err) {
-      setError(messageFor(err, "Kode OTP belum dapat dikirim."));
+      setError(messageFor(err, t("login.otpSendError")));
     }
   }
 
   async function handleContinue() {
     const phoneNumber = normalizePhoneEntry(country, phone);
     if (!isE164Phone(phoneNumber)) {
-      setError("Masukkan nomor HP dengan format internasional, mis. +60 / +852 / +62…");
+      setError(t("login.phoneFormatError"));
       return;
     }
     setE164Phone(phoneNumber);
     setError(null);
     setShowSmsFallback(false);
     setBusy(true);
-    setBusyLabel("Memeriksa akun…");
+    setBusyLabel(t("login.checkingAccount"));
     try {
       await getPasskeyLoginOptions(phoneNumber);
-      setBusyLabel("Masuk dengan sidik jari…");
+      setBusyLabel(t("login.signingInPasskey"));
       const { token, sender: loggedInSender } = await loginWithPasskey(phoneNumber);
       setSession({ token, sender: loggedInSender });
       setLastPhone(phoneNumber);
@@ -92,7 +94,7 @@ export default function LoginPage() {
       if (err instanceof ApiError && err.code === "SENDER_NOT_FOUND") {
         await sendOtp(phoneNumber);
       } else {
-        setError(messageFor(err, "Masuk dengan sidik jari belum berhasil."));
+        setError(messageFor(err, t("login.passkeyLoginError")));
         setShowSmsFallback(true);
       }
     } finally {
@@ -111,12 +113,12 @@ export default function LoginPage() {
 
   async function handleVerifyOtp() {
     if (code.length !== 6) {
-      setError("Masukkan 6 digit kode OTP.");
+      setError(t("login.otpLengthError"));
       return;
     }
     setError(null);
     setBusy(true);
-    setBusyLabel("Memverifikasi kode…");
+    setBusyLabel(t("login.verifyingCode"));
     try {
       const phoneNumber = e164Phone || normalizePhoneEntry(country, phone);
       const { token, sender: verifiedSender } = await verifyAuthOtp(phoneNumber, code, name.trim() || undefined);
@@ -124,7 +126,7 @@ export default function LoginPage() {
       setLastPhone(phoneNumber);
       afterAuthSuccess(verifiedSender);
     } catch (err) {
-      setError(messageFor(err, "Kode OTP tidak dapat diverifikasi."));
+      setError(messageFor(err, t("login.otpVerifyError")));
     } finally {
       setBusy(false);
     }
@@ -134,13 +136,13 @@ export default function LoginPage() {
     if (!sender) return;
     setError(null);
     setBusy(true);
-    setBusyLabel("Mengaktifkan sidik jari…");
+    setBusyLabel(t("login.activatingPasskey"));
     try {
       const { keyIdBase64, contractId } = await registerPasskeyAndWallet(sender.name);
       setWalletInfo({ keyId: keyIdBase64, walletAddress: contractId });
       redirectAfterLogin();
     } catch (err) {
-      setError(messageFor(err, "Sidik jari belum dapat diaktifkan. Kamu bisa mencobanya lagi nanti di Akun."));
+      setError(messageFor(err, t("login.passkeyActivateError")));
     } finally {
       setBusy(false);
     }
@@ -166,28 +168,28 @@ export default function LoginPage() {
           {step === "phone" && (
             <div className="grid grid-cols-1 gap-5">
               <div>
-                <p className="text-xs font-extrabold tracking-[.15em] text-brand-deep">MASUK</p>
-                <h1 className="mt-2 text-3xl font-extrabold tracking-[-.05em]">Masuk ke Sangu</h1>
-                <p className="mt-2 text-sm text-muted">Pakai nomor HP-mu. Kalau perangkat ini sudah dikenali, cukup sidik jari saja.</p>
+                <p className="text-xs font-extrabold tracking-[.15em] text-brand-deep">{t("login.eyebrowSignIn")}</p>
+                <h1 className="mt-2 text-3xl font-extrabold tracking-[-.05em]">{t("login.title")}</h1>
+                <p className="mt-2 text-sm text-muted">{t("login.subtitle")}</p>
               </div>
-              <Field label="Nomor HP">
+              <Field label={t("login.phoneLabel")}>
                 <div className={`relative flex items-center gap-2 rounded-xl border bg-white px-2 transition ${phone.length > 0 && phoneIsValid ? "border-success" : "border-line"}`}>
                   <button
                     type="button"
-                    aria-label="Kode negara"
+                    aria-label={t("login.countryCodeAria")}
                     aria-haspopup="listbox"
                     aria-expanded={countryOpen}
                     onClick={() => setCountryOpen((open) => !open)}
                     className="flex h-12 shrink-0 items-center gap-1.5 rounded-lg px-1 text-sm font-bold text-ink outline-none focus-visible:ring-2 focus-visible:ring-brand"
                   >
-                    {country.flagCode ? <span aria-hidden="true" className={`fi fi-${country.flagCode} fis rounded-[1px] text-xl leading-none`} /> : <span aria-hidden="true">Lain</span>}
+                    {country.flagCode ? <span aria-hidden="true" className={`fi fi-${country.flagCode} fis rounded-[1px] text-xl leading-none`} /> : <span aria-hidden="true">{t("login.otherCountry")}</span>}
                     <span>{country.dialCode || ""}</span>
                     <svg aria-hidden="true" viewBox="0 0 16 16" className="size-4 text-muted" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="m3.5 6 4.5 4.5L12.5 6" />
                     </svg>
                   </button>
                   {countryOpen && (
-                    <div role="listbox" aria-label="Pilih negara" className="absolute left-0 top-[calc(100%+0.5rem)] z-20 grid w-64 max-h-72 gap-0.5 overflow-y-auto rounded-xl border border-line bg-white p-1.5 shadow-lg">
+                    <div role="listbox" aria-label={t("login.selectCountryAria")} className="absolute left-0 top-[calc(100%+0.5rem)] z-20 grid w-64 max-h-72 gap-0.5 overflow-y-auto rounded-xl border border-line bg-white p-1.5 shadow-lg">
                       {PHONE_COUNTRIES.map((item) => (
                         <button
                           key={item.iso}
@@ -200,26 +202,26 @@ export default function LoginPage() {
                         >
                           {item.flagCode ? <span aria-hidden="true" className={`fi fi-${item.flagCode} fis rounded-[1px] text-xl leading-none`} /> : <span aria-hidden="true" className="w-5 text-center">•</span>}
                           <span className="flex-1">{item.label}</span>
-                          <span className="font-bold text-muted">{item.dialCode || "Lain"}</span>
+                          <span className="font-bold text-muted">{item.dialCode || t("login.otherCountry")}</span>
                         </button>
                       ))}
                     </div>
                   )}
                   <TextInput
-                    aria-label="Nomor HP"
+                    aria-label={t("login.phoneLabel")}
                     inputMode="tel"
-                    placeholder={country.iso === "OTHER" ? "+55 11 99876 5432" : "7921 - 734 - 22"}
+                    placeholder={country.iso === "OTHER" ? t("login.phonePlaceholderOther") : t("login.phonePlaceholderDefault")}
                     value={formatLocalPhone(phone)}
                     onChange={(event) => handlePhoneChange(event.target.value)}
                     className="min-w-0 border-0 bg-transparent px-0 focus:outline-none"
                   />
-                  {phone.length > 0 && phoneIsValid && <span aria-label="Nomor HP valid" className="shrink-0 text-xl font-extrabold text-success">✓</span>}
+                  {phone.length > 0 && phoneIsValid && <span aria-label={t("login.phoneValidAria")} className="shrink-0 text-xl font-extrabold text-success">✓</span>}
                 </div>
               </Field>
               {error && <p className="text-sm font-semibold text-danger" role="alert">{error}</p>}
-              <Button fullWidth onClick={handleContinue} disabled={busy}>{busy ? busyLabel : "Lanjutkan"}</Button>
+              <Button fullWidth onClick={handleContinue} disabled={busy}>{busy ? busyLabel : t("login.continueButton")}</Button>
               {showSmsFallback && (
-                <Button fullWidth variant="secondary" onClick={() => sendOtp(e164Phone || normalizePhoneEntry(country, phone))} disabled={busy}>Masuk dengan kode SMS</Button>
+                <Button fullWidth variant="secondary" onClick={() => sendOtp(e164Phone || normalizePhoneEntry(country, phone))} disabled={busy}>{t("login.smsFallbackButton")}</Button>
               )}
             </div>
           )}
@@ -227,18 +229,18 @@ export default function LoginPage() {
           {step === "otp" && (
             <div className="grid grid-cols-1 gap-5">
               <div>
-                <p className="text-xs font-extrabold tracking-[.15em] text-brand-deep">VERIFIKASI</p>
-                <h1 className="mt-2 whitespace-nowrap text-[clamp(1.375rem,6.5vw,1.875rem)] font-extrabold tracking-[-.05em]">Masukkan kode OTP</h1>
-                <p className="mt-2 text-sm text-muted">Kami mengirim kode 6 digit ke {e164Phone}.</p>
+                <p className="text-xs font-extrabold tracking-[.15em] text-brand-deep">{t("login.eyebrowVerify")}</p>
+                <h1 className="mt-2 whitespace-nowrap text-[clamp(1.375rem,6.5vw,1.875rem)] font-extrabold tracking-[-.05em]">{t("login.otpTitle")}</h1>
+                <p className="mt-2 text-sm text-muted">{t("login.otpSentPrefix")} {e164Phone}.</p>
               </div>
               <OtpInput value={code} onChange={setCode} />
-              <Field label="Nama lengkap" hint="Isi kalau ini pertama kali kamu daftar.">
-                <TextInput placeholder="Nama sesuai KTP/paspor" value={name} onChange={(event) => setName(event.target.value)} />
+              <Field label={t("login.nameLabel")} hint={t("login.nameHint")}>
+                <TextInput placeholder={t("login.namePlaceholder")} value={name} onChange={(event) => setName(event.target.value)} />
               </Field>
               {error && <p className="text-sm font-semibold text-danger" role="alert">{error}</p>}
-              <Button fullWidth onClick={handleVerifyOtp} disabled={busy}>{busy ? busyLabel : "Verifikasi & masuk"}</Button>
+              <Button fullWidth onClick={handleVerifyOtp} disabled={busy}>{busy ? busyLabel : t("login.verifyButton")}</Button>
               <Button fullWidth variant="ghost" className="whitespace-nowrap" onClick={() => sendOtp(e164Phone || normalizePhoneEntry(country, phone))} disabled={busy || resendIn > 0}>
-                {resendIn > 0 ? `Kirim ulang dalam ${resendIn} detik` : "Kirim ulang kode"}
+                {resendIn > 0 ? `${t("login.resendCountdownPrefix")} ${resendIn} ${t("login.secondsUnit")}` : t("login.resendCode")}
               </Button>
             </div>
           )}
@@ -246,13 +248,13 @@ export default function LoginPage() {
           {step === "passkey-setup" && (
             <div className="grid grid-cols-1 gap-5">
               <div>
-                <p className="text-xs font-extrabold tracking-[.15em] text-brand-deep">AMANKAN AKUN</p>
-                <h1 className="mt-2 text-3xl font-extrabold tracking-[-.05em]">Aktifkan sidik jari untuk keamanan &amp; masuk cepat</h1>
-                <p className="mt-2 text-sm text-muted">Sidik jari dipakai untuk masuk tanpa OTP dan mengonfirmasi setiap transfer.</p>
+                <p className="text-xs font-extrabold tracking-[.15em] text-brand-deep">{t("login.eyebrowSecure")}</p>
+                <h1 className="mt-2 text-3xl font-extrabold tracking-[-.05em]">{t("login.passkeySetupTitle")}</h1>
+                <p className="mt-2 text-sm text-muted">{t("login.passkeySetupSubtitle")}</p>
               </div>
               {error && <p className="text-sm font-semibold text-danger" role="alert">{error}</p>}
-              <Button fullWidth onClick={handleActivatePasskey} disabled={busy}>{busy ? busyLabel : "Aktifkan sidik jari"}</Button>
-              <Button fullWidth variant="ghost" onClick={redirectAfterLogin} disabled={busy}>Lewati dulu</Button>
+              <Button fullWidth onClick={handleActivatePasskey} disabled={busy}>{busy ? busyLabel : t("login.activatePasskeyButton")}</Button>
+              <Button fullWidth variant="ghost" onClick={redirectAfterLogin} disabled={busy}>{t("login.skipButton")}</Button>
             </div>
           )}
         </Card>
@@ -262,6 +264,7 @@ export default function LoginPage() {
 }
 
 function OtpInput({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const t = useT();
   const refs = useRef<Array<HTMLInputElement | null>>([]);
   const digits = Array.from({ length: 6 }, (_, index) => value[index] ?? "");
 
@@ -301,19 +304,19 @@ function OtpInput({ value, onChange }: { value: string; onChange: (value: string
   }
 
   return (
-    <div className="flex gap-2" role="group" aria-label="Kode OTP 6 digit">
+    <div className="flex gap-2" role="group" aria-label={t("login.otpGroupAria")}>
       {digits.map((digit, index) => (
         <input
           key={index}
           ref={(element) => { refs.current[index] = element; }}
           inputMode="numeric"
           maxLength={6}
-          placeholder="0"
+          placeholder={t("login.otpDigitPlaceholder")}
           value={digit}
           onChange={(event) => handleChange(index, event)}
           onKeyDown={(event) => handleKeyDown(index, event)}
           onPaste={(event) => handlePaste(index, event)}
-          aria-label={`Digit ${index + 1}`}
+          aria-label={`${t("login.otpDigitAria")} ${index + 1}`}
           className="h-12 min-w-0 flex-1 max-w-12 rounded-2xl border border-line text-center text-xl font-extrabold focus:border-brand focus:outline-none"
         />
       ))}

@@ -4,18 +4,12 @@ import { Button } from "@/components/ui/button";
 import { TextInput } from "@/components/ui/field";
 import type { Corridor, PayoutMethod } from "@/lib/api";
 import { CORRIDORS, CORRIDOR_ORDER } from "@/lib/corridors";
+import { useT } from "@/lib/i18n/locale-context";
 import { isE164Phone } from "@/lib/send-flow";
 
 const corridorChoices: Array<{ value: Corridor; flag: string; label: string; suffix: string }> = CORRIDOR_ORDER.map(
   (value) => ({ value, flag: CORRIDORS[value].flag, label: CORRIDORS[value].country, suffix: `→ ${CORRIDORS[value].symbol}` }),
 );
-
-const payoutChoices: Array<{ value: PayoutMethod; label: string }> = [
-  { value: "dana", label: "DANA" },
-  { value: "gopay", label: "GoPay" },
-  { value: "bank", label: "Bank" },
-  { value: "cash", label: "Tunai" },
-];
 
 export function RecipientStep({
   corridor,
@@ -34,16 +28,23 @@ export function RecipientStep({
   onMethodChange: (value: PayoutMethod | null) => void;
   onContinue: () => void;
 }) {
+  const t = useT();
   const phoneValid = isE164Phone(phone);
+  const payoutChoices: Array<{ value: PayoutMethod; label: string }> = [
+    { value: "dana", label: "DANA" },
+    { value: "gopay", label: "GoPay" },
+    { value: "bank", label: t("send.payoutBank") },
+    { value: "cash", label: t("send.payoutCash") },
+  ];
 
   return (
     <div className="grid gap-6 px-1 pb-6 pt-2">
       <div>
-        <h1 className="text-2xl font-extrabold tracking-[-.05em]">Kirim ke siapa?</h1>
-        <p className="mt-1 text-sm text-muted">Pilih koridor dan nomor WhatsApp penerima.</p>
+        <h1 className="text-2xl font-extrabold tracking-[-.05em]">{t("send.recipientHeading")}</h1>
+        <p className="mt-1 text-sm text-muted">{t("send.recipientSubheading")}</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="Koridor transfer">
+      <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label={t("send.corridorAria")}>
         {corridorChoices.map((choice) => (
           <button
             type="button"
@@ -61,7 +62,7 @@ export function RecipientStep({
       </div>
 
       <div>
-        <label className="mb-1.5 block text-sm font-bold text-ink" htmlFor="recipient-phone">Nomor WhatsApp penerima</label>
+        <label className="mb-1.5 block text-sm font-bold text-ink" htmlFor="recipient-phone">{t("send.phoneLabel")}</label>
         <TextInput
           id="recipient-phone"
           inputMode="tel"
@@ -70,13 +71,13 @@ export function RecipientStep({
           onChange={(event) => onPhoneChange(event.target.value)}
         />
         {phone.length > 0 && !phoneValid && (
-          <p className="mt-1.5 text-xs font-semibold text-danger">Gunakan format internasional, mis. +62812…</p>
+          <p className="mt-1.5 text-xs font-semibold text-danger">{t("send.phoneInvalid")}</p>
         )}
       </div>
 
       <div>
-        <p className="mb-2 text-sm font-bold text-ink">Cara cair (opsional)</p>
-        <div className="flex flex-wrap gap-2" role="group" aria-label="Metode pencairan">
+        <p className="mb-2 text-sm font-bold text-ink">{t("send.payoutMethodTitle")}</p>
+        <div className="flex flex-wrap gap-2" role="group" aria-label={t("send.payoutMethodAria")}>
           {payoutChoices.map((choice) => {
             const selected = methodHint === choice.value;
             return (
@@ -92,10 +93,10 @@ export function RecipientStep({
             );
           })}
         </div>
-        <p className="mt-2 text-xs text-muted">Biar penerima yang pilih kalau tidak dipilih di sini.</p>
+        <p className="mt-2 text-xs text-muted">{t("send.payoutMethodNote")}</p>
       </div>
 
-      <Button fullWidth onClick={onContinue} disabled={!phoneValid}>Lanjutkan</Button>
+      <Button fullWidth onClick={onContinue} disabled={!phoneValid}>{t("send.continueButton")}</Button>
     </div>
   );
 }

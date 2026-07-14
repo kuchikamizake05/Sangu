@@ -1,5 +1,7 @@
 "use client";
 
+import { useT } from "@/lib/i18n/locale-context";
+
 export type NumpadKey = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "." | "del";
 
 const rows: NumpadKey[][] = [
@@ -20,14 +22,15 @@ function DeleteGlyph() {
 
 /** Numpad presentasional murni — semua logika nominal ada di pemanggil lewat lib/send-flow.ts. */
 export function Numpad({ onKey }: { onKey: (key: NumpadKey) => void }) {
+  const t = useT();
   return (
-    <div className="grid grid-cols-3 gap-3" role="group" aria-label="Papan angka nominal">
+    <div className="grid grid-cols-3 gap-3" role="group" aria-label={t("send.numpadAria")}>
       {rows.flat().map((key) => (
         <button
           type="button"
           key={key}
           onClick={() => onKey(key)}
-          aria-label={key === "del" ? "Hapus angka" : `Angka ${key}`}
+          aria-label={key === "del" ? t("send.deleteDigitAria") : `${t("send.digitAria")} ${key}`}
           className="flex min-h-[56px] items-center justify-center rounded-2xl bg-canvas text-2xl font-extrabold tabular-nums text-ink transition active:scale-95 active:bg-peach"
         >
           {key === "del" ? <DeleteGlyph /> : key}

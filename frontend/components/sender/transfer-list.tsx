@@ -1,11 +1,14 @@
+"use client";
+
 import { StatusBadge } from "@/components/ui/status-badge";
 import { UserIcon } from "@/components/ui/icons";
 import type { TransferSummary } from "@/lib/api";
+import { useT } from "@/lib/i18n/locale-context";
 import { formatForeignAmount } from "@/lib/send-flow";
 
 const relativeFormatter = new Intl.RelativeTimeFormat("id", { numeric: "auto" });
 
-function relativeDate(isoDate: string): string {
+function relativeDate(isoDate: string, justNowLabel: string): string {
   const date = new Date(isoDate);
   if (Number.isNaN(date.getTime())) return "";
   const diffMs = date.getTime() - Date.now();
@@ -13,7 +16,7 @@ function relativeDate(isoDate: string): string {
   const diffHours = Math.round(diffMinutes / 60);
   const diffDays = Math.round(diffHours / 24);
 
-  if (Math.abs(diffMinutes) < 1) return "Baru saja";
+  if (Math.abs(diffMinutes) < 1) return justNowLabel;
   if (Math.abs(diffMinutes) < 60) return relativeFormatter.format(diffMinutes, "minute");
   if (Math.abs(diffHours) < 24) return relativeFormatter.format(diffHours, "hour");
   if (Math.abs(diffDays) < 30) return relativeFormatter.format(diffDays, "day");
@@ -29,16 +32,17 @@ function initialFor(recipientMasked: string): string | null {
 export function TransferList({
   transfers,
   limit,
-  emptyLabel = "Belum ada kiriman. Mulai kirim ke keluarga di rumah.",
+  emptyLabel,
 }: {
   transfers: TransferSummary[];
   limit?: number;
   emptyLabel?: string;
 }) {
+  const t = useT();
   const items = typeof limit === "number" ? transfers.slice(0, limit) : transfers;
 
   if (items.length === 0) {
-    return <p className="py-4 text-sm text-muted">{emptyLabel}</p>;
+    return <p className="py-4 text-sm text-muted">{emptyLabel ?? t("send.emptyTransfers")}</p>;
   }
 
   return (
@@ -55,7 +59,7 @@ export function TransferList({
             </span>
             <span className="min-w-0">
               <span className="block truncate text-sm font-semibold text-ink">{transfer.recipientMasked}</span>
-              <span className="block text-xs text-muted">{relativeDate(transfer.createdAt)}</span>
+              <span className="block text-xs text-muted">{relativeDate(transfer.createdAt, t("send.justNow"))}</span>
             </span>
           </span>
           <span className="flex shrink-0 flex-col items-end gap-1">

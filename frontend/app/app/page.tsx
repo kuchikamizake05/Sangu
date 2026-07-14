@@ -20,16 +20,23 @@ import {
 import { useSession } from "@/lib/auth-session";
 import { CORRIDORS } from "@/lib/corridors";
 import { ChevronDownIcon, EyeIcon, EyeOffIcon } from "@/components/ui/icons";
+import { useT } from "@/lib/i18n/locale-context";
 
 const CURRENCY_PREFIX: Record<WalletBalance["currency"], string> = { USD: "$", MYR: "RM", HKD: "HK$", JPY: "¥" };
-const CURRENCIES: Array<{ code: BalanceCurrency; label: string }> = [
-  { code: "USD", label: "Dolar AS" },
-  { code: "MYR", label: "Ringgit Malaysia" },
-  { code: "HKD", label: "Dolar Hong Kong" },
-  { code: "JPY", label: "Yen Jepang" },
-];
+
+function useCurrencies(): Array<{ code: BalanceCurrency; label: string }> {
+  const t = useT();
+  return [
+    { code: "USD", label: t("home.currencyUsd") },
+    { code: "MYR", label: t("home.currencyMyr") },
+    { code: "HKD", label: t("home.currencyHkd") },
+    { code: "JPY", label: t("home.currencyJpy") },
+  ];
+}
 
 function CurrencyDropdown({ currency, onChange }: { currency: BalanceCurrency; onChange: (next: BalanceCurrency) => void }) {
+  const t = useT();
+  const CURRENCIES = useCurrencies();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -46,7 +53,7 @@ function CurrencyDropdown({ currency, onChange }: { currency: BalanceCurrency; o
     <div ref={rootRef} className="relative">
       <button
         type="button"
-        aria-label="Mata uang tampilan saldo"
+        aria-label={t("home.currencyAria")}
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
@@ -56,7 +63,7 @@ function CurrencyDropdown({ currency, onChange }: { currency: BalanceCurrency; o
         <ChevronDownIcon className={`size-4 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
       {open && (
-        <div className="absolute right-0 top-full z-20 mt-2 w-52 rounded-2xl bg-surface p-2 text-ink shadow-xl" role="listbox" aria-label="Pilih mata uang">
+        <div className="absolute right-0 top-full z-20 mt-2 w-52 rounded-2xl bg-surface p-2 text-ink shadow-xl" role="listbox" aria-label={t("home.selectCurrencyAria")}>
           {CURRENCIES.map((item) => (
             <button
               key={item.code}
@@ -93,6 +100,7 @@ function todayLabel(): string {
 }
 
 export default function SenderPage() {
+  const t = useT();
   const { sender } = useSession();
   const [balance, setBalance] = useState<WalletBalance | null>(null);
   const [balanceError, setBalanceError] = useState<string | null>(null);
@@ -114,7 +122,7 @@ export default function SenderPage() {
     setBalanceError(null);
     getWalletBalance(nextCurrency)
       .then((data) => setBalance(data))
-      .catch((error) => setBalanceError(error instanceof Error ? error.message : "Saldo belum dapat dimuat."))
+      .catch((error) => setBalanceError(error instanceof Error ? error.message : t("home.balanceLoadError")))
       .finally(() => setBalanceLoading(false));
   }
 
@@ -137,10 +145,10 @@ export default function SenderPage() {
     try {
       const data = await topupWallet(topupAmount, currency);
       setBalance(data);
-      setTopupNotice("Saldo berhasil ditambahkan.");
+      setTopupNotice(t("home.topupSuccess"));
       setShowTopup(false);
     } catch (error) {
-      setTopupNotice(error instanceof Error ? error.message : "Top up belum dapat diproses.");
+      setTopupNotice(error instanceof Error ? error.message : t("home.topupError"));
     } finally {
       setTopupBusy(false);
     }
@@ -163,12 +171,12 @@ export default function SenderPage() {
       <AppShell mode="sender">
         <div className="mx-auto grid max-w-2xl gap-6 pb-12">
           <section>
-            <p className="text-2xl font-extrabold tracking-[-.04em] text-ink">Halo, {firstName ?? "Halo"}</p>
-            <p className="mt-1 text-sm text-muted">{todayLabel()} · Siap kirim sangu hari ini?</p>
+            <p className="text-2xl font-extrabold tracking-[-.04em] text-ink">{t("home.greeting")}, {firstName ?? t("home.greeting")}</p>
+            <p className="mt-1 text-sm text-muted">{todayLabel()} · {t("home.todaySubtitle")}</p>
           </section>
 
           <Card className="!bg-ink !text-white">
-            <p className="text-sm text-white/60">Saldo kamu</p>
+            <p className="text-sm text-white/60">{t("home.balanceLabel")}</p>
             {balanceLoading ? (
               <div className="mt-2 grid gap-2" aria-hidden="true">
                 <div className="h-10 w-40 animate-pulse rounded-lg bg-white/15" />
@@ -188,7 +196,7 @@ export default function SenderPage() {
                     <button
                       type="button"
                       onClick={() => setHideBalance((hidden) => !hidden)}
-                      aria-label={hideBalance ? "Tampilkan saldo" : "Sembunyikan saldo"}
+                      aria-label={hideBalance ? t("home.showBalanceAria") : t("home.hideBalanceAria")}
                       aria-pressed={hideBalance}
                       className="flex size-9 shrink-0 items-center justify-center rounded-[14px] text-white/70 transition hover:bg-white/10 hover:text-white"
                     >
@@ -200,9 +208,9 @@ export default function SenderPage() {
                   className={`mt-3 flex items-center gap-2 text-sm text-white/65 ${hideBalance ? "select-none blur-md" : ""}`}
                   aria-hidden={hideBalance || undefined}
                 >
-                  <span className="tabular-nums">{balance ? `≈ Rp ${formatIdr(balance.idrEstimate)}` : balanceError ?? "Saldo belum dapat dimuat."}</span>
+                  <span className="tabular-nums">{balance ? `${t("home.idrEstimatePrefix")} ${formatIdr(balance.idrEstimate)}` : balanceError ?? t("home.balanceLoadError")}</span>
                   {balance?.source === "demo" && (
-                    <span className="rounded-full bg-white/15 px-2 py-0.5 text-xs font-bold">demo</span>
+                    <span className="rounded-full bg-white/15 px-2 py-0.5 text-xs font-bold">{t("home.demoBadge")}</span>
                   )}
                 </p>
               </>
@@ -211,13 +219,13 @@ export default function SenderPage() {
 
           <div className="grid grid-cols-2 gap-3">
             <Button variant="secondary" className="min-h-14 !text-base !font-extrabold lg:col-span-2" onClick={() => setShowTopup((open) => !open)}>
-              {showTopup ? "Tutup" : "Isi saldo"}
+              {showTopup ? t("home.closeButton") : t("home.topupButton")}
             </Button>
             <a
               href="/send"
               className="flex min-h-14 items-center justify-center rounded-[14px] bg-brand px-6 py-4 text-base font-extrabold text-ink no-underline hover:bg-brand-hover lg:hidden"
             >
-              Kirim uang
+              {t("home.sendMoney")}
             </a>
           </div>
 
@@ -225,7 +233,7 @@ export default function SenderPage() {
             <Card>
               <div className="grid gap-3">
                 <label className="text-xs font-semibold text-muted" htmlFor="topup-amount">
-                  Nominal top up
+                  {t("home.topupAmountLabel")}
                 </label>
                 <div className="relative">
                   <input
@@ -238,7 +246,7 @@ export default function SenderPage() {
                   <span aria-hidden className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm font-bold text-muted">{currency}</span>
                 </div>
                 <Button onClick={handleTopup} disabled={topupBusy} fullWidth>
-                  {topupBusy ? "Memproses…" : "Tambah saldo"}
+                  {topupBusy ? t("home.processing") : t("home.addBalance")}
                 </Button>
               </div>
             </Card>
@@ -252,21 +260,21 @@ export default function SenderPage() {
           {dueSchedule && (
             <Card className="!border-peach !bg-peach-wash">
               <p className="text-sm font-bold text-brand-deep">
-                Sangu Bulanan siap dikirim — {dueSchedule.recipientMasked} · {CORRIDORS[dueSchedule.corridor].symbol} {formatAmount(dueSchedule.amountForeign)}
+                {t("home.recurringDue")} {dueSchedule.recipientMasked} · {CORRIDORS[dueSchedule.corridor].symbol} {formatAmount(dueSchedule.amountForeign)}
               </p>
               <div className="mt-4 flex flex-wrap items-center gap-4">
                 <a
                   className="inline-flex min-h-11 items-center justify-center rounded-[14px] bg-brand px-5 py-3 text-sm font-extrabold text-ink no-underline hover:bg-brand-hover"
                   href={`/send?recipient=${encodeURIComponent(dueSchedule.recipientPhone ?? "")}&corridor=${dueSchedule.corridor}&amount=${encodeURIComponent(dueSchedule.amountForeign)}&recurringId=${dueSchedule.recurringId}`}
                 >
-                  Kirim sekarang
+                  {t("home.sendNow")}
                 </a>
                 <button
                   type="button"
                   className="text-sm font-semibold text-muted underline-offset-2 hover:underline"
                   onClick={() => handleSkipRecurring(dueSchedule.recurringId)}
                 >
-                  Nanti dulu
+                  {t("home.later")}
                 </button>
               </div>
             </Card>
@@ -274,9 +282,9 @@ export default function SenderPage() {
 
           <section>
             <div className="mb-3 flex items-center justify-between gap-3">
-              <p className="text-base font-extrabold text-ink">Terakhir dikirim</p>
+              <p className="text-base font-extrabold text-ink">{t("home.recentSent")}</p>
               <a className="text-sm font-extrabold text-brand-deep no-underline hover:underline" href="/transfers">
-                Lihat semua
+                {t("home.viewAll")}
               </a>
             </div>
             <Card>

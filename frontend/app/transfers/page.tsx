@@ -7,16 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { TransferList } from "@/components/sender/transfer-list";
 import { getTransfers, type TransferSummary } from "@/lib/api";
+import { useT } from "@/lib/i18n/locale-context";
 import { filterTransfers, type TransferFilter } from "@/lib/transfer-history-presentation";
-
-const filterOptions: { value: TransferFilter; label: string }[] = [
-  { value: "ALL", label: "Semua" },
-  { value: "PENDING", label: "Menunggu" },
-  { value: "CLAIMED", label: "Diproses" },
-  { value: "PAID_OUT", label: "Selesai" },
-  { value: "REFUNDED", label: "Dikembalikan" },
-  { value: "EXPIRED", label: "Kedaluwarsa" },
-];
 
 const monthFormatter = new Intl.DateTimeFormat("id-ID", { month: "long", year: "numeric" });
 
@@ -41,6 +33,15 @@ function groupByMonth(transfers: TransferSummary[]): Array<{ key: string; label:
 }
 
 export default function TransfersPage() {
+  const t = useT();
+  const filterOptions: { value: TransferFilter; label: string }[] = [
+    { value: "ALL", label: t("transfers.filterAll") },
+    { value: "PENDING", label: t("transfers.filterPending") },
+    { value: "CLAIMED", label: t("transfers.filterClaimed") },
+    { value: "PAID_OUT", label: t("transfers.filterPaidOut") },
+    { value: "REFUNDED", label: t("transfers.filterRefunded") },
+    { value: "EXPIRED", label: t("transfers.filterExpired") },
+  ];
   const [transfers, setTransfers] = useState<TransferSummary[] | null>(null);
   const [error, setError] = useState(false);
   const [filter, setFilter] = useState<TransferFilter>("ALL");
@@ -60,11 +61,11 @@ export default function TransfersPage() {
   const groups = useMemo(() => groupByMonth(filtered), [filtered]);
 
   return <AuthGuard><AppShell><div className="mx-auto max-w-2xl pb-12 lg:max-w-3xl">
-    <p className="mt-1 text-xs font-extrabold tracking-[.15em] text-brand-deep">RIWAYAT</p>
-    <h1 className="mt-2 text-3xl font-extrabold tracking-[-.05em]">Aktivitas</h1>
-    <p className="mt-2 text-sm text-muted">Pantau semua kiriman yang pernah kamu buat.</p>
+    <p className="mt-1 text-xs font-extrabold tracking-[.15em] text-brand-deep">{t("transfers.eyebrow")}</p>
+    <h1 className="mt-2 text-3xl font-extrabold tracking-[-.05em]">{t("transfers.title")}</h1>
+    <p className="mt-2 text-sm text-muted">{t("transfers.subtitle")}</p>
 
-    <div className="mt-6 -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0" aria-label="Filter status">
+    <div className="mt-6 -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0" aria-label={t("transfers.filterAria")}>
       {filterOptions.map((option) => (
         <button
           key={option.value}
@@ -81,12 +82,12 @@ export default function TransfersPage() {
     <Card className="mt-5">
       {transfers === null ? <TransfersSkeleton /> : error ? (
         <div className="py-6 text-center">
-          <p className="text-sm font-semibold text-ink">Riwayat belum dapat dimuat.</p>
-          <p className="mt-1 text-sm text-muted">Periksa koneksi kamu lalu coba lagi.</p>
-          <Button className="mt-4" variant="secondary" onClick={() => setReloadToken((token) => token + 1)}>Coba lagi</Button>
+          <p className="text-sm font-semibold text-ink">{t("transfers.loadError")}</p>
+          <p className="mt-1 text-sm text-muted">{t("transfers.loadErrorHint")}</p>
+          <Button className="mt-4" variant="secondary" onClick={() => setReloadToken((token) => token + 1)}>{t("transfers.retry")}</Button>
         </div>
       ) : groups.length === 0 ? (
-        <p className="py-6 text-center text-sm text-muted">Belum ada kiriman pada status ini.</p>
+        <p className="py-6 text-center text-sm text-muted">{t("transfers.emptyFiltered")}</p>
       ) : (
         <div className="grid gap-6">
           {groups.map((group) => (

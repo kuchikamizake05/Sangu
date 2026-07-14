@@ -10,6 +10,7 @@ import { TransactionConfirmation } from "@/components/sender/transaction-confirm
 import { ApiError, markRecurringSent, prepareSend, type Corridor, type PayoutMethod, type PrepareSendResponse } from "@/lib/api";
 import { formatForeignAmount, isE164Phone, appendDigit } from "@/lib/send-flow";
 import { isCorridor } from "@/lib/corridors";
+import { useT } from "@/lib/i18n/locale-context";
 import { useQuote } from "@/lib/use-quote";
 import type { NumpadKey } from "@/components/sender/numpad";
 
@@ -18,6 +19,7 @@ type Step = "recipient" | "amount" | "confirm" | "success";
 const stepIndex: Record<Step, number> = { recipient: 1, amount: 2, confirm: 3, success: 3 };
 
 export default function SendPage() {
+  const t = useT();
   const [step, setStep] = useState<Step>("recipient");
   const [corridor, setCorridor] = useState<Corridor>("US");
   const [phone, setPhone] = useState("");
@@ -61,7 +63,7 @@ export default function SendPage() {
       const response = await prepareSend({ corridor, amountForeign: amount, recipientPhone: phone, methodHint: methodHint ?? undefined });
       setPrepared(response);
     } catch (error) {
-      setPrepareError(error instanceof Error ? error.message : "Transfer belum dapat disiapkan. Coba beberapa saat lagi.");
+      setPrepareError(error instanceof Error ? error.message : t("send.prepareErrorFallback"));
       setPrepareErrorCode(error instanceof ApiError ? error.code ?? null : null);
     } finally {
       setPrepareBusy(false);
@@ -154,13 +156,14 @@ export default function SendPage() {
 }
 
 function Header({ step, onBack }: { step: Step; onBack: () => void }) {
+  const t = useT();
   const current = stepIndex[step];
   return (
     <div className="flex items-center justify-between px-1 pb-2 pt-1">
-      <button type="button" aria-label="Kembali" onClick={onBack} className="flex size-9 items-center justify-center rounded-full text-xl text-ink transition hover:bg-canvas">
+      <button type="button" aria-label={t("send.backButtonAria")} onClick={onBack} className="flex size-9 items-center justify-center rounded-full text-xl text-ink transition hover:bg-canvas">
         ✕
       </button>
-      <div className="flex gap-1.5" role="progressbar" aria-label="Progres kirim uang" aria-valuemin={1} aria-valuemax={3} aria-valuenow={current}>
+      <div className="flex gap-1.5" role="progressbar" aria-label={t("send.progressAria")} aria-valuemin={1} aria-valuemax={3} aria-valuenow={current}>
         {[1, 2, 3].map((item) => <span key={item} className={`h-1.5 w-5 rounded-full ${item <= current ? "bg-brand" : "bg-line"}`} />)}
       </div>
       <span className="size-9" aria-hidden="true" />
@@ -189,28 +192,29 @@ function ConfirmStep({
   onRetry: () => void;
   onDone: (claimUrl: string) => void;
 }) {
+  const t = useT();
   const insufficientBalance = prepareErrorCode === "INSUFFICIENT_BALANCE";
   return (
     <div className="flex flex-1 flex-col justify-end">
       <div className="rounded-t-[30px] bg-surface p-6 shadow-[0_-8px_30px_rgba(0,0,0,0.06)]">
-        <h2 className="text-xl font-extrabold tracking-[-.04em]">Periksa kirimanmu</h2>
+        <h2 className="text-xl font-extrabold tracking-[-.04em]">{t("send.reviewTitle")}</h2>
 
         <div className="mt-4 grid gap-2 text-sm">
-          <p className="flex justify-between"><span className="text-muted">Penerima</span><span className="font-bold">{phone}</span></p>
-          <p className="flex justify-between"><span className="text-muted">Kamu kirim</span><span className="font-bold tabular-nums">{formatForeignAmount(amount, corridor)}</span></p>
-          <p className="flex justify-between"><span className="text-muted">Keluarga terima</span><span className="font-bold tabular-nums">± Rp {Number(prepared?.quote.amountIdr ?? 0).toLocaleString("id-ID")}</span></p>
-          <p className="flex justify-between"><span className="text-muted">Biaya</span><span className="font-bold tabular-nums">Rp {Number(prepared?.quote.feeIdrEstimate ?? 0).toLocaleString("id-ID")}</span></p>
+          <p className="flex justify-between"><span className="text-muted">{t("send.recipientLabel")}</span><span className="font-bold">{phone}</span></p>
+          <p className="flex justify-between"><span className="text-muted">{t("send.youSendLabel")}</span><span className="font-bold tabular-nums">{formatForeignAmount(amount, corridor)}</span></p>
+          <p className="flex justify-between"><span className="text-muted">{t("send.familyReceivesLabel")}</span><span className="font-bold tabular-nums">± Rp {Number(prepared?.quote.amountIdr ?? 0).toLocaleString("id-ID")}</span></p>
+          <p className="flex justify-between"><span className="text-muted">{t("send.feeLabel")}</span><span className="font-bold tabular-nums">Rp {Number(prepared?.quote.feeIdrEstimate ?? 0).toLocaleString("id-ID")}</span></p>
         </div>
-        {prepared && <p className="mt-2 text-xs text-muted">Kurs berlaku · {new Date(prepared.quote.rateAsOf).toLocaleString("id-ID")}</p>}
+        {prepared && <p className="mt-2 text-xs text-muted">{t("send.rateAsOf")} {new Date(prepared.quote.rateAsOf).toLocaleString("id-ID")}</p>}
 
-        {prepareBusy && <p className="mt-6 text-sm text-muted">Menyiapkan transfer…</p>}
+        {prepareBusy && <p className="mt-6 text-sm text-muted">{t("send.preparingTransfer")}</p>}
         {prepareError && (
           <div className="mt-6 flex items-center justify-between gap-3 rounded-2xl bg-danger-wash p-3 text-sm font-semibold text-danger" role="alert">
             <span>{prepareError}</span>
             {insufficientBalance ? (
-              <a className="shrink-0 font-extrabold underline" href="/app">Isi saldo</a>
+              <a className="shrink-0 font-extrabold underline" href="/app">{t("send.topUpBalance")}</a>
             ) : (
-              <button type="button" className="shrink-0 font-extrabold underline" onClick={onRetry}>Coba lagi</button>
+              <button type="button" className="shrink-0 font-extrabold underline" onClick={onRetry}>{t("send.retry")}</button>
             )}
           </div>
         )}

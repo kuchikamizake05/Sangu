@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import type { Corridor, Quote } from "@/lib/api";
 import { CORRIDORS } from "@/lib/corridors";
+import { useT } from "@/lib/i18n/locale-context";
 import { Numpad, type NumpadKey } from "./numpad";
 
 function amountFontSize(displayValue: string): string {
@@ -31,6 +32,7 @@ export function AmountScreen({
   onContinue: () => void;
   canContinue: boolean;
 }) {
+  const t = useT();
   const symbol = CORRIDORS[corridor].symbol;
   const hasAmount = amount.length > 0;
   const displayValue = hasAmount ? amount : "0";
@@ -38,16 +40,16 @@ export function AmountScreen({
   return (
     <div className="flex min-h-[70dvh] flex-col">
       <div className="flex flex-1 flex-col items-center justify-center gap-3 px-4 text-center">
-        <p className="text-xs font-extrabold tracking-[.15em] text-brand-deep">JUMLAH KIRIM</p>
+        <p className="text-xs font-extrabold tracking-[.15em] text-brand-deep">{t("send.amountEyebrow")}</p>
         <p className={`font-extrabold tabular-nums tracking-[-.04em] ${amountFontSize(displayValue)} ${hasAmount ? "text-ink" : "text-muted"}`}>
           {symbol} {displayValue}
         </p>
         <div className="min-h-[20px] text-sm" aria-live="polite">
-          {loading && <span className="text-muted">Menghitung…</span>}
+          {loading && <span className="text-muted">{t("send.calculating")}</span>}
           {!loading && error && <span className="font-semibold text-danger">{error}</span>}
           {!loading && !error && quote && (
             <span className="text-muted">
-              ≈ Rp {Number(quote.amountIdr).toLocaleString("id-ID")} untuk penerima · biaya Rp {Number(quote.feeIdrEstimate).toLocaleString("id-ID")}
+              ≈ Rp {Number(quote.amountIdr).toLocaleString("id-ID")} {t("send.quoteSummary")} Rp {Number(quote.feeIdrEstimate).toLocaleString("id-ID")}
             </span>
           )}
         </div>
@@ -56,7 +58,7 @@ export function AmountScreen({
       <div className="px-1 pb-3">
         <Numpad onKey={onKey} />
       </div>
-      <Button fullWidth onClick={onContinue} disabled={!canContinue}>Lanjutkan</Button>
+      <Button fullWidth onClick={onContinue} disabled={!canContinue}>{t("send.continueButton")}</Button>
     </div>
   );
 }
