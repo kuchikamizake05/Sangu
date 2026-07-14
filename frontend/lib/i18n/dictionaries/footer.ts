@@ -1,0 +1,38 @@
+export const footer = {
+  id: {
+    tagline: "Kirim pulang, semudah kirim pesan. Layanan kirim uang untuk perantau Indonesia.",
+    colProduct: "Produk",
+    colCompany: "Perusahaan",
+    colHelp: "Bantuan",
+    linkSendMoney: "Kirim uang",
+    linkMonthly: "Sangu Bulanan",
+    linkRates: "Kurs",
+    linkSecurity: "Keamanan",
+    linkAbout: "Tentang Sangu",
+    linkBlog: "Blog",
+    linkCareers: "Karier",
+    linkHelpCenter: "Pusat bantuan",
+    linkServiceStatus: "Status layanan",
+    linkContact: "Kontak",
+    legal:
+      "© 2026 Sangu. Uangmu hanya bisa dibuka dari perangkatmu sendiri — versi demo, bukan layanan keuangan berizin.",
+  },
+  en: {
+    tagline: "Send home, as easy as sending a message. Money transfers for Indonesians abroad.",
+    colProduct: "Product",
+    colCompany: "Company",
+    colHelp: "Help",
+    linkSendMoney: "Send money",
+    linkMonthly: "Sangu Monthly",
+    linkRates: "Rates",
+    linkSecurity: "Security",
+    linkAbout: "About Sangu",
+    linkBlog: "Blog",
+    linkCareers: "Careers",
+    linkHelpCenter: "Help center",
+    linkServiceStatus: "Service status",
+    linkContact: "Contact",
+    legal:
+      "© 2026 Sangu. Your money can only be unlocked from your own device — demo version, not a licensed financial service.",
+  },
+} as const;

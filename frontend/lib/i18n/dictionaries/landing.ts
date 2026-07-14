@@ -1,0 +1,313 @@
+// Namespace: landing — copy marketing landing page (ID + EN).
+export const landing = {
+  id: {
+    nav: {
+      brandAria: "Sangu beranda",
+      cta: "Buka app",
+    },
+    hero: {
+      title: "Sangu pulang untuk",
+      titleHighlight: "keluarga",
+      sub: "Begitu kamu tap kirim, uangnya sudah di ponsel keluarga — kurs pasar asli, kunci hanya di tanganmu. Tanpa bank, tanpa antre, tanpa nunggu tiga hari untuk uangmu sendiri.",
+      ctaPrimary: "Buka akun gratis",
+      ctaSecondary: "Lihat kursnya",
+      strip: {
+        alt1: "Perempuan mengirim uang dengan kurs asli dari rooftop kota.",
+        alt2: "Layar pengaturan keamanan dan sidik jari di ponsel.",
+        alt3: "Perempuan menerima pembayaran di ponselnya.",
+        alt4: "Mengirim nominal sangu secara terjadwal tiap bulan.",
+        alt5: "Ratna di Indonesia menerima transfer instan lewat link.",
+        alt6: "Perantau mengirim uang lintas mata uang lewat aplikasi.",
+        alt7: "Notifikasi transfer diterima di layar ponsel.",
+        alt8: "Laki-laki membuka aplikasi transfer di pesawat.",
+      },
+    },
+    features: {
+      ariaLabel: "Fitur Sangu",
+      sectionTitle: "Semua yang bikin bank lambat, di sini instan.",
+      items: {
+        speed: {
+          title: "5 detik, bukan 5 hari",
+          copy: "Bank butuh tiga sampai lima hari kerja. Sangu butuh sekitar lima detik. Kirim habis shift — sampai rumah sebelum kamu terlelap.",
+          cta: "Kirim uang",
+          alt: "Pengguna mengirim uang ke berbagai mata uang lewat aplikasi.",
+        },
+        key: {
+          title: "Tak ada yang bisa membekukan uangmu. Bahkan kami.",
+          copy: "Kunci keamanannya tak pernah keluar dari perangkatmu, hanya terbuka lewat sidik jari atau wajahmu. Tak ada bank, tak ada peretas, tak ada Sangu yang bisa menahan atau memakainya.",
+          cta: "Pelajari keamanannya",
+          alt: "Layar pengaturan keamanan dan sidik jari di ponsel.",
+        },
+        monthly: {
+          title: "Tak pernah lagi telat kirim gajian",
+          copy: "Atur sekali di tanggal gajian, lalu lupakan. Tiap bulan sangu berangkat sendiri, tepat waktu — ubah atau hentikan kapan pun, tanpa penalti.",
+          cta: "Atur jadwal",
+          alt: "Layar mengirim nominal sangu secara terjadwal.",
+        },
+        claim: {
+          title: "Tanpa aplikasi. Keluarga cukup tap satu link.",
+          copy: "Mereka buka satu link aman di browser apa pun, dan uangnya langsung jadi milik mereka. Tanpa install, tanpa bikin akun, tanpa perlu diajari.",
+          cta: "Coba kirim link",
+          alt: "Ibu di Indonesia menerima transfer instan lewat link.",
+        },
+      },
+    },
+    rateSection: {
+      title: "Kurs asli, bukan kurs-kursan.",
+      sub: "Bank dan agen diam-diam ambil margin di tiap transfer. Kami tidak ambil sepeser pun. Tiap rupiah yang kamu kirim, sampai utuh di rumah.",
+      ctaPrimary: "Buka akun gratis",
+      calcTitle: "Lihat persis berapa yang sampai di rumah",
+      fromLabel: "Dari",
+      toLabel: "Ke",
+      marketRateLabel: "Kurs pasar",
+      compareLink: "Bandingkan dengan kurs Google",
+      ccyButtonAria: "Mata uang asal",
+      ccyMenuAria: "Pilih mata uang asal",
+      ccyMenuLabel: "Kirim dari",
+      amountAriaLabel: "Jumlah dalam",
+      currencies: {
+        usd: "Dolar AS",
+        myr: "Ringgit Malaysia",
+        hkd: "Dolar Hong Kong",
+        jpy: "Yen Jepang",
+      },
+    },
+    security: {
+      title: "Uangmu tak bisa disentuh siapa pun.",
+      legal: "Kunci keamanan uangmu tersimpan di perangkatmu dan tidak pernah menyentuh server kami — hanya kamu yang bisa menggerakkan uangmu. Versi demo — bukan layanan keuangan berizin.",
+      rows: {
+        key: {
+          title: "Kunci transfer sekali sentuh",
+          copy: "Konfirmasi tiap kiriman dengan sidik jari atau wajah.",
+          alt: "Kartu Sangu terkunci di aplikasi, dibuka dengan sidik jari.",
+        },
+        bell: {
+          title: "Notifikasi instan",
+          copy: "Tahu persis saat uangmu bergerak, dari berangkat sampai diklaim.",
+          alt: "Notifikasi transfer masuk dan keluar di layar ponsel.",
+        },
+        eye: {
+          title: "Terlindungi sepanjang waktu",
+          copy: "Setiap transaksi tercatat permanen dan bisa diperiksa kapan pun.",
+          alt: "Peringatan verifikasi login aktivitas baru di akun.",
+        },
+        shield: {
+          title: "Hanya kamu pemegang kuncinya",
+          copy: "Tak ada yang bisa menyentuh uangmu — bukan bank, bukan peretas, bahkan bukan Sangu.",
+          alt: "Keluarga tersenyum dengan lapisan keamanan sidik jari.",
+        },
+      },
+    },
+    support: {
+      title: "Mentok jam 2 pagi di rantau? Kami sudah bangun.",
+      items: {
+        anytime: {
+          title: "Kapan pun",
+          copy: "Bantuan 24/7 sungguhan dalam bahasa Indonesia. Bahkan jam 2 pagi di ujung dunia, ada yang siap untukmu.",
+        },
+        anywhere: {
+          title: "Di mana pun",
+          copy: "Dari Kuala Lumpur, Hong Kong, Taipei, sampai Riyadh — selama ada internet, ada Sangu.",
+        },
+        anything: {
+          title: "Apa pun pertanyaannya",
+          copy: "Dari cara klaim sampai soal kurs, tanya saja. Tidak ada pertanyaan yang terlalu sepele.",
+        },
+      },
+    },
+    testimonials: {
+      ariaLabel: "Testimoni komunitas",
+      title: "Yang di rumah sudah merasakan bedanya.",
+      sub: "Dibuat untuk mereka yang hidup, kerja, dan berpenghasilan lintas negara.",
+      cards: {
+        sari: "Dulu nunggu akhir pekan buat antre di counter. Sekarang sambil rebahan, sangu sudah sampai.",
+        fitri: "Transfer tengah malam pun tetap sampai. Beda zona waktu, uang tetap masuk dalam hitungan detik.",
+        yanti: "Ibu di Wonosobo tinggal buka link, uangnya langsung masuk. Nggak perlu ngajarin aplikasi.",
+        budi: "Gajian tanggal 25, tanggal 25 juga sampai di rumah. Sangu Bulanan jalan sendiri.",
+        hendra: "Sekali atur jadwal, tiap bulan berangkat otomatis. Aku nggak pernah lupa kirim sangu lagi.",
+        rina: "Yang kukirim, itu yang diterima. Nggak ada potongan aneh-aneh di tengah jalan.",
+        dewi: "Login sidik jarinya bikin tenang. Nggak ada password yang bisa dibobol orang.",
+      },
+    },
+    ticker: {
+      title: "Dibangun di atas rel yang terpercaya",
+      partners: {
+        stellar: "Jaringan Stellar",
+        usdc: "Stablecoin USDC",
+        passkey: "Login Passkey",
+        noncustodial: "Non-custodial",
+      },
+    },
+    downloadCta: {
+      title: "Keluargamu bisa terima uangnya dalam dua menit.",
+      sub: "Gratis untuk mulai, tanpa minimum, tanpa jebakan. Dua menit dari sekarang, rumah bisa sudah menerimanya. Scan kodenya atau buka Sangu langsung di browser.",
+      ctaPrimary: "Buka akun gratis",
+      badges: {
+        browserSmall: "Langsung di",
+        browser: "Browser",
+        appStoreSmall: "Segera di",
+        appStore: "App Store",
+        googlePlaySmall: "Segera di",
+        googlePlay: "Google Play",
+      },
+      qrAria: "Buka Sangu",
+      qrAlt: "Kode QR untuk membuka Sangu",
+      qrCaption: "Scan untuk buka Sangu",
+    },
+  },
+  en: {
+    nav: {
+      brandAria: "Sangu home",
+      cta: "Open app",
+    },
+    hero: {
+      title: "Money home the moment you hit",
+      titleHighlight: "send",
+      sub: "The instant you tap send, it's on their phone — real market rate, a key only you hold. No banks, no branches, no waiting three days for your own money.",
+      ctaPrimary: "Open a free account",
+      ctaSecondary: "See the rate",
+      strip: {
+        alt1: "A woman sending money at the real exchange rate from a city rooftop.",
+        alt2: "Security settings and fingerprint screen on a phone.",
+        alt3: "A woman receiving a payment on her phone.",
+        alt4: "Sending a scheduled monthly Sangu amount.",
+        alt5: "Ratna in Indonesia receiving an instant transfer via link.",
+        alt6: "An Indonesian abroad sending money across currencies via the app.",
+        alt7: "Transfer received notification on a phone screen.",
+        alt8: "A man opening the transfer app on a plane.",
+      },
+    },
+    features: {
+      ariaLabel: "Sangu features",
+      sectionTitle: "Everything a bank makes slow, made instant.",
+      items: {
+        speed: {
+          title: "5 seconds, not 5 days",
+          copy: "Banks take three to five business days. Sangu takes about five seconds. Send right after your shift — it's home before you fall asleep.",
+          cta: "Send money",
+          alt: "A user sending money across currencies via the app.",
+        },
+        key: {
+          title: "No one can freeze your money. Not even us.",
+          copy: "Your security key never leaves your device, unlocked only by your fingerprint or face. No bank, no hacker, no Sangu can hold it or spend it.",
+          cta: "Learn about security",
+          alt: "Security settings and fingerprint screen on a phone.",
+        },
+        monthly: {
+          title: "Never miss a payday again",
+          copy: "Set it once on payday, then forget it. Every month Sangu heads home on its own, right on time — change it or stop it anytime, no penalty.",
+          cta: "Set a schedule",
+          alt: "Screen for sending a scheduled Sangu amount.",
+        },
+        claim: {
+          title: "No app. Family just taps a link.",
+          copy: "They open one secure link in any browser and the money is theirs. No install, no account to create, no one to walk them through it.",
+          cta: "Try sending a link",
+          alt: "A mother in Indonesia receiving an instant transfer via link.",
+        },
+      },
+    },
+    rateSection: {
+      title: "The real rate. No hidden cut.",
+      sub: "Banks and agents quietly pocket a markup on every transfer. We take none. Every single rupiah you send lands at home.",
+      ctaPrimary: "Open a free account",
+      calcTitle: "See exactly how much lands at home",
+      fromLabel: "From",
+      toLabel: "To",
+      marketRateLabel: "Market rate",
+      compareLink: "Compare with Google's rate",
+      ccyButtonAria: "Source currency",
+      ccyMenuAria: "Choose source currency",
+      ccyMenuLabel: "Send from",
+      amountAriaLabel: "Amount in",
+      currencies: {
+        usd: "US Dollar",
+        myr: "Malaysian Ringgit",
+        hkd: "Hong Kong Dollar",
+        jpy: "Japanese Yen",
+      },
+    },
+    security: {
+      title: "Your money can't be touched. By anyone.",
+      legal: "Your money's security key lives on your device and never touches our servers — only you can move your money. Demo version — not a licensed financial service.",
+      rows: {
+        key: {
+          title: "One-touch transfer lock",
+          copy: "Confirm every transfer with your fingerprint or face.",
+          alt: "A locked Sangu card in the app, unlocked with a fingerprint.",
+        },
+        bell: {
+          title: "Instant notifications",
+          copy: "Know exactly when your money moves, from sent to claimed.",
+          alt: "Incoming and outgoing transfer notifications on a phone screen.",
+        },
+        eye: {
+          title: "Protected around the clock",
+          copy: "Every transaction is permanently recorded and can be checked anytime.",
+          alt: "New account activity login verification alert.",
+        },
+        shield: {
+          title: "You hold the only key",
+          copy: "No one can touch your money — not a bank, not a hacker, not even Sangu.",
+          alt: "A family smiling with a layer of fingerprint security.",
+        },
+      },
+    },
+    support: {
+      title: "Stuck at 2am abroad? We're already awake.",
+      items: {
+        anytime: {
+          title: "Anytime",
+          copy: "Real 24/7 support in Indonesian. Even at 2am on the other side of the world, someone's awake for you.",
+        },
+        anywhere: {
+          title: "Anywhere",
+          copy: "From Kuala Lumpur, Hong Kong, Taipei, to Riyadh — as long as there's internet, there's Sangu.",
+        },
+        anything: {
+          title: "Any question",
+          copy: "From how to claim to questions about rates, just ask. No question is too small.",
+        },
+      },
+    },
+    testimonials: {
+      ariaLabel: "Community testimonials",
+      title: "The people back home already noticed.",
+      sub: "Built for the people who live, work, and earn across borders.",
+      cards: {
+        sari: "I used to wait all weekend to queue at the counter. Now while lying in bed, the Sangu has already arrived.",
+        fitri: "Even a midnight transfer still arrives. Different time zone, money still lands in seconds.",
+        yanti: "Mom in Wonosobo just opens the link and the money's in. No need to teach her an app.",
+        budi: "Payday is the 25th, and it arrives home on the 25th too. Monthly Sangu runs itself.",
+        hendra: "Set the schedule once, and it goes out automatically every month. I never forget to send Sangu again.",
+        rina: "What I send is what arrives. No weird deductions along the way.",
+        dewi: "Fingerprint login gives me peace of mind. No password that anyone can crack.",
+      },
+    },
+    ticker: {
+      title: "Built on rails you can trust",
+      partners: {
+        stellar: "Stellar Network",
+        usdc: "USDC Stablecoin",
+        passkey: "Passkey Login",
+        noncustodial: "Non-custodial",
+      },
+    },
+    downloadCta: {
+      title: "Your family could have the money in two minutes.",
+      sub: "Free to start, no minimum, no catch. Two minutes from now, home could already have it. Scan the code or open Sangu right in your browser.",
+      ctaPrimary: "Open a free account",
+      badges: {
+        browserSmall: "Available now on",
+        browser: "Browser",
+        appStoreSmall: "Coming soon to",
+        appStore: "App Store",
+        googlePlaySmall: "Coming soon to",
+        googlePlay: "Google Play",
+      },
+      qrAria: "Open Sangu",
+      qrAlt: "QR code to open Sangu",
+      qrCaption: "Scan to open Sangu",
+    },
+  },
+} as const;

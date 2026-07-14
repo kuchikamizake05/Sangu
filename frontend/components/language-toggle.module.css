@@ -1,0 +1,47 @@
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+}
+
+.option {
+  appearance: none;
+  border: 0;
+  cursor: pointer;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.8125rem;
+  line-height: 1;
+  color: var(--muted);
+  background: transparent;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.option:hover {
+  color: var(--ink);
+}
+
+.option[data-active="true"] {
+  color: #fff;
+  background: var(--color-brand-deep, var(--ink));
+}
+
+.settings .option {
+  padding: 8px 18px;
+  font-size: 0.875rem;
+}
+
+.settings {
+  width: 100%;
+  justify-content: stretch;
+}
+
+.settings .option {
+  flex: 1;
+}
