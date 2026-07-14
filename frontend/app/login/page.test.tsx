@@ -61,4 +61,26 @@ describe("LoginPage", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("dibatalkan pengguna");
     expect(await screen.findByRole("button", { name: "Masuk dengan kode SMS" })).toBeInTheDocument();
   });
+
+  it("combines the selected country code with a local number before requesting OTP", async () => {
+    vi.mocked(getPasskeyLoginOptions).mockRejectedValue(new ApiError("akun tidak ditemukan", "SENDER_NOT_FOUND"));
+    vi.mocked(requestAuthOtp).mockResolvedValue({ sent: true });
+
+    render(<LoginPage />);
+
+    fireEvent.change(screen.getByLabelText("Kode negara"), { target: { value: "MY" } });
+    fireEvent.change(screen.getByLabelText("Nomor HP"), { target: { value: "012 345 6789" } });
+    fireEvent.click(screen.getByRole("button", { name: "Lanjutkan" }));
+
+    await vi.waitFor(() => expect(requestAuthOtp).toHaveBeenCalledWith("+60123456789"));
+  });
+
+  it("recognizes a pasted supported international number and updates its country selection", () => {
+    render(<LoginPage />);
+
+    fireEvent.change(screen.getByLabelText("Nomor HP"), { target: { value: "+852 1234 5678" } });
+
+    expect(screen.getByLabelText("Kode negara")).toHaveValue("HK");
+    expect(screen.getByLabelText("Nomor HP")).toHaveValue("12345678");
+  });
 });
