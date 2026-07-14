@@ -4,6 +4,7 @@ import cors from "@fastify/cors";
 import senderRoutes from "./routes/sender.js";
 import claimRoutes from "./routes/claim.js";
 import authRoutes from "./routes/auth.js";
+import walletRoutes from "./routes/wallet.js";
 import { registerAuth } from "./lib/auth.js";
 import { startScheduler, stopScheduler } from "./lib/scheduler.js";
 import { closeDb } from "./lib/db.js";
@@ -21,6 +22,7 @@ app.get("/health", async () => ({
 await registerAuth(app); // JWT + decorator authenticate — wajib sebelum route sender
 await app.register(authRoutes);
 await app.register(senderRoutes);
+await app.register(walletRoutes);
 await app.register(claimRoutes);
 
 startScheduler(app.log);

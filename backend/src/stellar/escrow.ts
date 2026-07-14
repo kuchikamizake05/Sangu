@@ -4,6 +4,7 @@ import crypto from "node:crypto";
 import {
   rpc,
   TransactionBuilder,
+  FeeBumpTransaction,
   BASE_FEE,
   Contract,
   Keypair,
@@ -166,12 +167,39 @@ export async function prepareDeposit(p: PrepareDepositParams): Promise<{ unsigne
   return { unsignedXDR: bumped.toXDR() };
 }
 
-// TODO: bungkus fee-bump (RELAYER_SECRET) + submit signedXDR via Soroban RPC; kembalikan escrowId dari event.
 export async function submitDeposit(signedXDR: string): Promise<{ escrowId: string; txHash: string }> {
   const { relayer } = requireOnchain();
   const srv = server();
 
-  const tx = TransactionBuilder.fromXDR(signedXDR, networkPassphrase());
+  const incoming = TransactionBuilder.fromXDR(signedXDR, networkPassphrase());
+  if (incoming instanceof FeeBumpTransaction) throw new Error("signedXDR harus transaksi biasa, bukan fee-bump");
+
+  // Dua alasan envelope prepare TIDAK bisa dipakai apa adanya:
+  // 1. Sequence relayer bisa basi saat user selesai tanda tangan (akun relayer juga dipakai
+  //    keeper/scheduler) → txBadSeq.
+  // 2. Footprint hasil simulasi prepare direkam TANPA menjalankan __check_auth (auth entry
+  //    belum ditandatangani saat itu) → storage signer passkey tidak ter-footprint →
+  //    "access outside of the footprint" saat apply.
+  // Tanda tangan passkey menempel di AUTH ENTRY Soroban (nonce + expiration ledger), bukan di
+  // envelope — jadi aman: bangun ulang envelope dengan sequence segar, bawa operasi (berikut
+  // auth ter-tanda-tangan), lalu RE-SIMULASI supaya footprint + resource fee dihitung penuh.
+  const rawOp = incoming.toEnvelope().v1().tx().operations()[0];
+
+  const relayerAccount = await srv.getAccount(relayer.publicKey());
+  const rebuilt = new TransactionBuilder(relayerAccount, {
+    fee: BASE_FEE,
+    networkPassphrase: networkPassphrase(),
+  })
+    .addOperation(rawOp)
+    .setTimeout(300)
+    .build();
+
+  const sim = await srv.simulateTransaction(rebuilt);
+  if (rpc.Api.isSimulationError(sim)) {
+    throw new Error(`re-simulasi deposit gagal: ${formatSimError(sim)}`);
+  }
+  const tx = rpc.assembleTransaction(rebuilt, sim).build();
+
   // Relayer menandatangani ENVELOPE (fee source); auth entry sender sudah ditandatangani
   // oleh passkey wallet sebelum dikirim ke sini.
   tx.sign(relayer);
@@ -222,6 +250,86 @@ export async function refund(escrowId: string): Promise<{ txHash: string }> {
   const op = contract.call("refund", nativeToScVal(BigInt(escrowId), { type: "u64" }));
 
   return runRelayerOnlyOp(srv, relayer, op);
+}
+
+// ── Helper SAC USDC: baca saldo & on-ramp (transfer dari akun settlement/treasury). ──
+
+function usdcSacId(): string {
+  const id = process.env.USDC_SAC;
+  if (!id) throw new Error("USDC_SAC belum diset di .env");
+  return id;
+}
+
+/** Saldo USDC sebuah address (G... atau C...) dalam stroops, via simulasi read-only `balance`. */
+export async function getUsdcBalanceStroops(address: string): Promise<bigint> {
+  const { relayer } = requireOnchain();
+  const srv = server();
+  const contract = new Contract(usdcSacId());
+  const source = await srv.getAccount(relayer.publicKey());
+
+  const tx = new TransactionBuilder(source, { fee: BASE_FEE, networkPassphrase: networkPassphrase() })
+    .addOperation(contract.call("balance", new Address(address).toScVal()))
+    .setTimeout(60)
+    .build();
+
+  const sim = await srv.simulateTransaction(tx);
+  if (rpc.Api.isSimulationError(sim)) throw new Error(`baca saldo USDC gagal: ${formatSimError(sim)}`);
+  const retval = (sim as rpc.Api.SimulateTransactionSuccessResponse).result?.retval;
+  return retval ? BigInt(scValToNative(retval) as bigint) : 0n;
+}
+
+/**
+ * On-ramp MOCK-tapi-on-chain (docs §14.7): kirim USDC testnet sungguhan dari akun SETTLEMENT
+ * (berperan sebagai treasury on-ramp demo) ke smart wallet sender. Settlement = source &
+ * penandatangan, jadi require_auth `from` terpenuhi lewat source-account auth.
+ */
+export async function transferUsdcFromTreasury(destination: string, stroops: bigint): Promise<{ txHash: string }> {
+  const secret = process.env.SETTLEMENT_SECRET;
+  if (!secret) throw new Error("SETTLEMENT_SECRET belum diset — treasury on-ramp tidak tersedia");
+  const settlement = Keypair.fromSecret(secret);
+  const srv = server();
+  const contract = new Contract(usdcSacId());
+
+  const op = contract.call(
+    "transfer",
+    new Address(settlement.publicKey()).toScVal(),
+    new Address(destination).toScVal(),
+    nativeToScVal(stroops, { type: "i128" }),
+  );
+
+  return runRelayerOnlyOp(srv, settlement, op);
+}
+
+// Deploy smart wallet passkey (setup pertama): frontend mengirim tx deploy yang sudah
+// ditandatangani passkey-kit (source = akun seed internal kit, BUKAN akun kita); relayer
+// membungkusnya fee-bump supaya fee dibayar relayer, lalu submit. Idempoten: kontrak
+// yang sudah ter-deploy (retry) diperlakukan sukses.
+export async function submitWalletDeploy(signedXDR: string): Promise<{ txHash: string | null }> {
+  const { relayer } = requireOnchain();
+  const srv = server();
+
+  const inner = TransactionBuilder.fromXDR(signedXDR, networkPassphrase());
+  if (inner instanceof FeeBumpTransaction) throw new Error("signedTx harus transaksi biasa, bukan fee-bump");
+
+  // Param baseFee = fee per operasi utk envelope fee-bump; wajib menutup fee inner
+  // (termasuk resource fee Soroban) — beri margin supaya tidak txInsufficientFee.
+  const feePerOp = (BigInt(inner.fee) + 200_000n).toString();
+  const bump = TransactionBuilder.buildFeeBumpTransaction(relayer, feePerOp, inner, networkPassphrase());
+  bump.sign(relayer);
+
+  const sendRes = await srv.sendTransaction(bump);
+  if (sendRes.status === "ERROR") {
+    const detail = JSON.stringify(sendRes.errorResult ?? {});
+    if (/exist/i.test(detail)) return { txHash: null }; // sudah ter-deploy — anggap sukses
+    throw new Error(`submit deploy wallet gagal: ${detail}`);
+  }
+
+  try {
+    await pollTransaction(srv, sendRes.hash);
+  } catch (err) {
+    if (!/exist/i.test(String(err))) throw err;
+  }
+  return { txHash: sendRes.hash };
 }
 
 // Helper: build → simulate → assemble → sign → send → poll, untuk operasi yang relayer

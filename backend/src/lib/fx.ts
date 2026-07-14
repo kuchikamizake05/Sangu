@@ -9,6 +9,16 @@ const FX_API = process.env.FX_API_URL ?? "https://open.er-api.com/v6/latest";
 // Estimasi biaya kompetitor untuk fitur transparansi — ANGKA DEMO, bukan kutipan resmi.
 const WU_FEE_RATE_ESTIMATE = 0.065; // ~6.5% (rata-rata global, ilustratif)
 
+/** Kurs 1 unit mata uang koridor dalam USD (mis. MYR→USD ~0.21). Untuk konversi saldo USDC on-chain → tampilan foreign. */
+export async function foreignToUsdRate(corridor: Corridor): Promise<number> {
+  const cur = CURRENCY[corridor];
+  const res = await fetch(`${FX_API}/${cur}`);
+  const data = (await res.json()) as { rates?: Record<string, number> };
+  const usdRate = data.rates?.USD;
+  if (!usdRate) throw new Error(`FX rate ${cur}->USD tidak tersedia`);
+  return usdRate;
+}
+
 export async function getQuote(corridor: Corridor, amountForeign: number) {
   const cur = CURRENCY[corridor];
   const res = await fetch(`${FX_API}/${cur}`);

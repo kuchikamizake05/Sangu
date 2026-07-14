@@ -21,6 +21,7 @@ import { isOnchainEnabled, claim as escrowClaim } from "../stellar/escrow.js";
 import {
   settlementAddress,
   startWithdraw,
+  completeInteractiveWithdraw,
   getWithdrawInfo,
   payAnchorWithMemo,
 } from "../anchor/sep24.js";
@@ -36,6 +37,18 @@ function effectiveStatus(t: TransferRecord): TransferStatus {
   return t.status;
 }
 
+/**
+ * Final dari sudut pandang penerima: anchor sudah terbayar/terminal, atau jalur
+ * simulasi (tanpa anchor nyata). false hanya bila withdrawal anchor masih in-flight
+ * (poller sedang bekerja) — frontend menampilkan "diproses" lalu polling.
+ */
+function payoutCompleted(t: TransferRecord): boolean {
+  if (t.status !== "PAID_OUT") return false;
+  if (!t.anchorTxId || t.anchorTxId.startsWith("SIM-")) return true;
+  if (t.anchorPaymentTxHash) return true;
+  return !["incomplete", "pending_user_transfer_start", "pending_anchor", "pending_stellar", null].includes(t.anchorStatus);
+}
+
 export default async function claimRoutes(app: FastifyInstance) {
   app.get("/api/claim/:token", async (req, reply): Promise<unknown> => {
     const { token } = req.params as { token: string };
@@ -47,6 +60,7 @@ export default async function claimRoutes(app: FastifyInstance) {
       amountIdr: t.amountIdr,
       corridor: t.corridor,
       status: effectiveStatus(t),
+      payoutCompleted: payoutCompleted(t),
     };
     return info;
   });
@@ -107,18 +121,23 @@ export default async function claimRoutes(app: FastifyInstance) {
     //    ber-memo TIDAK dilakukan di sini, melainkan oleh poller di scheduler yang
     //    memantau status anchor (fast-path di bawah menangani anchor yang langsung siap).
     //    Best-effort — kegagalan anchor tidak membatalkan claim (dana sudah di settlement).
-    let instructions: string | undefined;
-    let anchorTxId: string | undefined;
-    let interactiveUrl: string | undefined;
+    //    CATATAN PRODUK: seluruh urusan anchor adalah tugas OPERATOR, bukan penerima —
+    //    anchorTxId/interactiveUrl disimpan di DB (dipantau poller + tampil di detail
+    //    pengirim) tapi TIDAK dikirim ke penerima; dia hanya melihat Rupiah.
     try {
       const amountUsdc = (Number(t.amountUsdcStroops) / 1e7).toFixed(2);
       const wd = await startWithdraw(amountUsdc);
       if (!wd.simulated) {
-        anchorTxId = wd.anchorTxId;
-        interactiveUrl = wd.interactiveUrl;
         let anchorStatus: string | null = null;
         let anchorPaymentTxHash: string | null = null;
-        // Fast-path: bila anchor langsung siap (tanpa langkah interaktif), bayar sekarang.
+        // Langkah interaktif diselesaikan TERPROGRAM (tugas operator terotomasi) —
+        // best-effort; bila gagal, poller scheduler mengulanginya tiap tick.
+        try {
+          await completeInteractiveWithdraw(wd.interactiveUrl, wd.amountUsdc);
+        } catch (err) {
+          req.log.warn({ err, anchorTxId: wd.anchorTxId }, "otomasi interactive anchor gagal — poller akan mencoba lagi");
+        }
+        // Fast-path: bila anchor langsung siap, bayar sekarang.
         const info = await getWithdrawInfo(wd.anchorTxId);
         anchorStatus = info.status;
         if (info.withdrawAnchorAccount && info.withdrawMemo) {
@@ -137,9 +156,6 @@ export default async function claimRoutes(app: FastifyInstance) {
           anchorInteractiveUrl: wd.interactiveUrl,
           anchorPaymentTxHash,
         });
-        instructions = anchorPaymentTxHash
-          ? `Withdrawal SEP-24 dibayar ke anchor (anchor tx ${wd.anchorTxId}).`
-          : `Withdrawal SEP-24 dimulai (anchor tx ${wd.anchorTxId}). Selesaikan langkah interaktif anchor; backend membayar otomatis setelahnya.`;
       }
     } catch (err) {
       req.log.warn({ err }, "jembatan SEP-24 gagal — claim tetap sah, payout disimulasikan");
@@ -158,20 +174,17 @@ export default async function claimRoutes(app: FastifyInstance) {
     await updateTransfer(t.transferId, { status: "PAID_OUT", payoutMethod, cashCode });
     await recordTransferEvent(t.transferId, "PAID_OUT");
 
+    const methodLabel: Record<string, string> = { dana: "DANA", gopay: "GoPay", bank: "rekening bankmu", cash: "gerai tunai" };
     const res: PayoutResponse = {
       status: "PAID_OUT",
       simulatedPayout: true,
-      ...(anchorTxId ? { anchorTxId, interactiveUrl } : {}),
       ...(cashCode
         ? {
             cashCode,
-            instructions:
-              instructions ??
-              "Tunjukkan kode ini di gerai tunai (payout gerai disimulasikan untuk demo).",
+            instructions: "Tunjukkan kode ini beserta KTP di gerai tunai terdekat.",
           }
         : {
-            instructions:
-              instructions ?? `Dana disimulasikan dikirim ke ${payoutMethod}.`,
+            instructions: `Dana sedang diproses ke ${methodLabel[payoutMethod] ?? payoutMethod}. Tidak ada yang perlu kamu lakukan lagi.`,
           }),
     };
     return res;

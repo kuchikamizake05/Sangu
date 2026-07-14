@@ -51,11 +51,28 @@ export interface SubmitSendResponse {
   claimUrl: string; // hanya berisi token opaque — TIDAK ada secret (spec §2.2)
 }
 
+// Saldo dompet pengirim (spec fitur saldo). Mode demo (default): saldo tersimpan di DB,
+// dikredit via /api/wallet/topup (mock on-ramp). Mode on-chain: TODO baca saldo USDC nyata
+// dari smart wallet via helper baca-saldo di stellar/ bila sudah tersedia.
+export interface WalletBalanceResponse {
+  currency: "MYR" | "HKD";
+  amount: string; // saldo dalam `currency`, string desimal (mis. "1840.00")
+  idrEstimate: string; // estimasi rupiah, string bulat
+  source: "onchain" | "demo";
+}
+
 export interface ClaimInfo {
   senderName: string;
   amountIdr: string;
   corridor: Corridor;
   status: TransferStatus;
+  /**
+   * Hanya bermakna saat status PAID_OUT: true bila pencairan sudah final dari sudut
+   * pandang penerima (anchor terbayar / jalur simulasi), false bila masih diproses
+   * (withdrawal anchor in-flight). Frontend memakai ini untuk transisi
+   * "Pencairan diproses" → "Dana sudah masuk".
+   */
+  payoutCompleted?: boolean;
 }
 
 export interface PayoutRequest {
@@ -65,14 +82,11 @@ export interface PayoutRequest {
 }
 
 // Payout: withdrawal SEP-24 nyata, tapi settlement IDR/tunai DISIMULASIKAN di layer anchor (review #5).
+// Anchor (SEP-24) TIDAK pernah tampil ke penerima — interactive flow adalah tugas operator;
+// referensinya tersimpan di transfer (anchorTxId dkk.) untuk poller & detail pengirim.
 export interface PayoutResponse {
   status: TransferStatus;
   simulatedPayout: true; // jujur: leg fiat/tunai belum real
   cashCode?: string;
   instructions?: string;
-  // SEP-24: anchor baru memberi memo tujuan SETELAH interactive flow diselesaikan.
-  // Frontend menampilkan interactiveUrl ke penerima; backend memantau (scheduler) dan
-  // membayar anchor otomatis begitu status pending_user_transfer_start.
-  anchorTxId?: string;
-  interactiveUrl?: string;
 }

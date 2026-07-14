@@ -14,7 +14,7 @@ import {
   recordTransferEvent,
 } from "./db.js";
 import { isOnchainEnabled, refund } from "../stellar/escrow.js";
-import { isAnchorEnabled, getWithdrawInfo, payAnchorWithMemo } from "../anchor/sep24.js";
+import { isAnchorEnabled, completeInteractiveWithdraw, getWithdrawInfo, interactiveTokenExpired, payAnchorWithMemo } from "../anchor/sep24.js";
 
 const KEEPER_INTERVAL_MS = Number(process.env.KEEPER_INTERVAL_MS ?? 30_000);
 // Cek jam-jaman cukup untuk jadwal harian; env untuk mempercepat saat demo/uji.
@@ -63,7 +63,23 @@ async function anchorTick(log: FastifyBaseLogger) {
   try {
     for (const t of await listAnchorAwaitingPayment()) {
       try {
-        const info = await getWithdrawInfo(t.anchorTxId!);
+        let info = await getWithdrawInfo(t.anchorTxId!);
+        // Langkah interaktif belum selesai (otomasi saat payout gagal/terlewat) → ulangi
+        // secara terprogram, lalu cek ulang status. Token URL kedaluwarsa = mustahil
+        // dilanjutkan → tandai terminal supaya tidak di-retry selamanya.
+        if (info.status === "incomplete" && t.anchorInteractiveUrl) {
+          if (interactiveTokenExpired(t.anchorInteractiveUrl)) {
+            await updateTransfer(t.transferId, { anchorStatus: "interactive_expired" });
+            log.warn({ transferId: t.transferId, anchorTxId: t.anchorTxId }, "anchor poller: token interaktif kedaluwarsa — withdrawal ditandai terminal");
+            continue;
+          }
+          await completeInteractiveWithdraw(
+            t.anchorInteractiveUrl,
+            t.anchorAmountUsdc ?? (Number(t.amountUsdcStroops) / 1e7).toFixed(2),
+          );
+          info = await getWithdrawInfo(t.anchorTxId!);
+          log.info({ transferId: t.transferId, anchorTxId: t.anchorTxId }, "anchor poller: langkah interaktif diselesaikan otomatis");
+        }
         if (info.status !== t.anchorStatus) {
           await updateTransfer(t.transferId, { anchorStatus: info.status });
         }

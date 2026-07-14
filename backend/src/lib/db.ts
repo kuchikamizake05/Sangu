@@ -55,7 +55,17 @@ export interface SenderRecord {
   passkeyPublicKey: string | null; // base64url COSE public key
   passkeyCounter: number;
   walletAddress: string | null; // alamat smart wallet passkey (C.../G...)
+  corridor?: "MY" | "HK" | null; // corridor pengirim; null/undefined → default MYR (lihat wallet.ts)
   createdAt: number;
+}
+
+// Saldo dompet demo (mock on-ramp) — nilai disimpan dalam mata uang corridor sender
+// (MYR/HKD), string desimal (2 angka di belakang koma), konsisten dgn amountForeign di transfers.
+export interface WalletBalanceRecord {
+  senderId: string;
+  corridor: "MY" | "HK";
+  balanceForeign: string;
+  updatedAt: number;
 }
 
 export interface RecurringRecord {
@@ -169,6 +179,17 @@ const SCHEMA_SQL = `
     "passkeyCounter"      BIGINT NOT NULL DEFAULT 0,
     "walletAddress"       TEXT,
     "createdAt"           BIGINT NOT NULL
+  );
+
+  -- Corridor pengirim (MY|HK) untuk menentukan mata uang saldo dompet; NULL → default MYR.
+  ALTER TABLE senders ADD COLUMN IF NOT EXISTS "corridor" TEXT;
+
+  -- Saldo dompet demo (mock on-ramp) — 1 baris per sender, saldo dalam mata uang corridor.
+  CREATE TABLE IF NOT EXISTS wallet_balances (
+    "senderId"       TEXT PRIMARY KEY REFERENCES senders("senderId") ON DELETE CASCADE,
+    "corridor"       TEXT NOT NULL,
+    "balanceForeign" TEXT NOT NULL DEFAULT '0.00',
+    "updatedAt"      BIGINT NOT NULL
   );
 
   -- OTP login/daftar pengirim; terpisah dari tabel "otps" milik alur claim.
@@ -336,7 +357,9 @@ export async function listTransfers(senderId: string): Promise<TransferRecord[]>
 
 // Withdrawal SEP-24 yang masih perlu dipantau: sudah punya anchorTxId, belum dibayar,
 // dan status anchor terakhir belum terminal. Dipakai poller di scheduler.
-const ANCHOR_TERMINAL_STATUSES = ["completed", "refunded", "expired", "error", "no_market"];
+// "interactive_expired" = status internal kita (bukan SEP-24): token interactive URL
+// kedaluwarsa sebelum langkah interaktif selesai — mustahil dilanjutkan, berhenti retry.
+const ANCHOR_TERMINAL_STATUSES = ["completed", "refunded", "expired", "error", "no_market", "interactive_expired"];
 
 export async function listAnchorAwaitingPayment(): Promise<TransferRecord[]> {
   const res = await query(
@@ -505,6 +528,7 @@ function rowToSender(row: Record<string, unknown>): SenderRecord {
     passkeyPublicKey: row.passkeyPublicKey as string | null,
     passkeyCounter: Number(row.passkeyCounter ?? 0),
     walletAddress: row.walletAddress as string | null,
+    corridor: (row.corridor as "MY" | "HK" | null) ?? null,
     createdAt: Number(row.createdAt),
   };
 }
@@ -531,12 +555,12 @@ export async function getSenderByPhoneHmac(phoneHmac: string): Promise<SenderRec
 }
 
 const SENDER_UPDATABLE_COLUMNS = new Set([
-  "name", "passkeyCredentialId", "passkeyPublicKey", "passkeyCounter", "walletAddress",
+  "name", "passkeyCredentialId", "passkeyPublicKey", "passkeyCounter", "walletAddress", "corridor",
 ]);
 
 export async function updateSender(
   senderId: string,
-  patch: Partial<Pick<SenderRecord, "name" | "passkeyCredentialId" | "passkeyPublicKey" | "passkeyCounter" | "walletAddress">>,
+  patch: Partial<Pick<SenderRecord, "name" | "passkeyCredentialId" | "passkeyPublicKey" | "passkeyCounter" | "walletAddress" | "corridor">>,
 ): Promise<void> {
   const keys = Object.keys(patch).filter((k) => SENDER_UPDATABLE_COLUMNS.has(k));
   if (keys.length === 0) return;
@@ -598,4 +622,53 @@ export async function consumeAuthChallenge(
   const row = res.rows[0] as { senderId: string | null; expiresAt: string | number } | undefined;
   if (!row || Number(row.expiresAt) <= nowSec()) return { ok: false, senderId: null };
   return { ok: true, senderId: row.senderId };
+}
+
+// ── Saldo dompet demo (mock on-ramp, wallet.ts) ──
+function rowToWalletBalance(row: Record<string, unknown>): WalletBalanceRecord {
+  return {
+    senderId: row.senderId as string,
+    corridor: row.corridor as "MY" | "HK",
+    balanceForeign: row.balanceForeign as string,
+    updatedAt: Number(row.updatedAt),
+  };
+}
+
+/** Ambil saldo dompet sender; bila belum ada baris, buat baru dengan saldo 0.00. */
+export async function getOrCreateWalletBalance(
+  senderId: string,
+  corridor: "MY" | "HK",
+): Promise<WalletBalanceRecord> {
+  const existing = await query(`SELECT * FROM wallet_balances WHERE "senderId" = $1`, [senderId]);
+  if (existing.rows[0]) return rowToWalletBalance(existing.rows[0]);
+
+  const ts = nowSec();
+  await query(
+    `
+    INSERT INTO wallet_balances ("senderId", "corridor", "balanceForeign", "updatedAt")
+    VALUES ($1, $2, '0.00', $3)
+    ON CONFLICT ("senderId") DO NOTHING
+  `,
+    [senderId, corridor, ts],
+  );
+  const res = await query(`SELECT * FROM wallet_balances WHERE "senderId" = $1`, [senderId]);
+  return rowToWalletBalance(res.rows[0]);
+}
+
+/** Set saldo dompet sender ke nilai baru (string desimal, mis. hasil top-up). */
+export async function setWalletBalance(
+  senderId: string,
+  corridor: "MY" | "HK",
+  balanceForeign: string,
+): Promise<void> {
+  const ts = nowSec();
+  await query(
+    `
+    INSERT INTO wallet_balances ("senderId", "corridor", "balanceForeign", "updatedAt")
+    VALUES ($1, $2, $3, $4)
+    ON CONFLICT ("senderId")
+    DO UPDATE SET "corridor" = $2, "balanceForeign" = $3, "updatedAt" = $4
+  `,
+    [senderId, corridor, balanceForeign, ts],
+  );
 }
