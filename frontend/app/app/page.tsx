@@ -208,12 +208,12 @@ export default function SenderPage() {
           </Card>
 
           <div className="grid grid-cols-2 gap-3">
-            <Button variant="secondary" className="min-h-14 !text-base !font-extrabold" onClick={() => setShowTopup((open) => !open)}>
+            <Button variant="secondary" className="min-h-14 !text-base !font-extrabold lg:col-span-2" onClick={() => setShowTopup((open) => !open)}>
               {showTopup ? "Tutup" : "Isi saldo"}
             </Button>
             <a
               href="/send"
-              className="flex min-h-14 items-center justify-center rounded-[14px] bg-brand px-6 py-4 text-base font-extrabold text-ink no-underline hover:bg-brand-hover"
+              className="flex min-h-14 items-center justify-center rounded-[14px] bg-brand px-6 py-4 text-base font-extrabold text-ink no-underline hover:bg-brand-hover lg:hidden"
             >
               Kirim uang
             </a>

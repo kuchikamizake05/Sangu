@@ -145,8 +145,8 @@ export function RecurringManager() {
       </div>}
     </Card>
 
-    {editing && <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/35" role="dialog" aria-modal="true" aria-labelledby="schedule-edit-title">
-      <div className="w-full max-w-lg rounded-t-[30px] bg-surface p-6 pb-[calc(24px+env(safe-area-inset-bottom))] shadow-[0_-8px_30px_rgba(0,0,0,0.06)]">
+    {editing && <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/35 lg:items-center lg:p-4" role="dialog" aria-modal="true" aria-labelledby="schedule-edit-title">
+      <div className="w-full max-w-lg rounded-t-[30px] bg-surface p-6 pb-[calc(24px+env(safe-area-inset-bottom))] shadow-[0_-8px_30px_rgba(0,0,0,0.06)] lg:rounded-[30px] lg:pb-6 lg:shadow-2xl">
         <h2 id="schedule-edit-title" className="text-xl font-extrabold tracking-[-.04em]">Edit jadwal</h2>
         <div className="mt-5 grid gap-4">
           <Field label={editing.corridor === "MY" ? "Jumlah (MYR)" : "Jumlah (HKD)"}><TextInput inputMode="decimal" value={editing.amountForeign} onChange={(event) => setEditing({ ...editing, amountForeign: event.target.value })} /></Field>

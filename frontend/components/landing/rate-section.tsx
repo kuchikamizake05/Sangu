@@ -10,6 +10,7 @@ type Currency = { code: string; flag: string; label: string; fallbackToIdr: numb
 const CURRENCIES: Currency[] = [
   { code: "MYR", flag: "🇲🇾", label: "Ringgit Malaysia", fallbackToIdr: 3685 },
   { code: "HKD", flag: "🇭🇰", label: "Dolar Hong Kong", fallbackToIdr: 2110 },
+  { code: "USD", flag: "🇺🇸", label: "Dolar AS", fallbackToIdr: 16250 },
 ];
 
 const TIMEZONE_CURRENCY: Record<string, string> = {

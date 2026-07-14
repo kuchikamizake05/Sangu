@@ -20,6 +20,6 @@ test("sender sees the pending SEP-24 anchor status in transfer detail", async ({
 
   await page.goto("/transfers/anchor-transfer");
 
-  await expect(page.getByRole("status", { name: "Status pencairan anchor" })).toContainText("Siap membayar ke anchor");
-  await expect(page.getByText("Referensi anchor: anchor-1")).toBeVisible();
+  await expect(page.getByRole("status", { name: "Status pencairan" })).toContainText("Siap dibayarkan");
+  await expect(page.getByText("Nomor referensi: anchor-1")).toBeVisible();
 });

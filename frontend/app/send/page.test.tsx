@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, vi } from "vitest";
-import { getQuote, markRecurringSent, prepareSend } from "@/lib/api";
+import { getQuote, markRecurringSent, prepareSend, type Quote } from "@/lib/api";
 import { signWithPasskey } from "@/lib/passkey-wallet";
 import { submitSend } from "@/lib/api";
 import SendPage from "./page";
@@ -16,11 +16,14 @@ vi.mock("@/lib/api", async (importOriginal) => ({
 
 vi.mock("@/lib/passkey-wallet", () => ({ signWithPasskey: vi.fn() }));
 
-const sampleQuote = {
+const sampleQuote: Quote = {
+  rate: "3500",
   amountIdr: "1750000",
+  estimate: true,
+  rateSource: "test",
   feeIdrEstimate: "12000",
   rateAsOf: "2026-07-13T09:00:00.000Z",
-  comparison: { westernUnionFeeIdrEstimate: "35000" },
+  comparison: { westernUnionFeeIdrEstimate: "35000", note: "estimasi" },
 };
 
 function fillPhoneAndContinue() {

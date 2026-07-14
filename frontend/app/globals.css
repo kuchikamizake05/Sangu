@@ -21,7 +21,7 @@
   --font-sans: var(--font-plus-jakarta), system-ui, sans-serif;
 }
 
-:root { --ink:var(--color-ink); --muted:var(--color-muted); --canvas:var(--color-canvas); --surface:var(--color-surface); --line:var(--color-line); --orange:var(--color-brand); --orange-hover:var(--color-brand-hover); --orange-pressed:var(--color-brand-deep); --peach:var(--color-peach); --success:var(--color-success); --success-wash:var(--color-success-wash); --danger:var(--color-danger); --danger-wash:var(--color-danger-wash); --radius-card:30px; --radius-button:14px; }
+:root { --ink:var(--color-ink); --muted:var(--color-muted); --canvas:var(--color-canvas); --surface:var(--color-surface); --line:var(--color-line); --orange:var(--color-brand); --orange-hover:var(--color-brand-hover); --orange-pressed:var(--color-brand-deep); --peach:var(--color-peach); --peach-wash:var(--color-peach-wash); --success:var(--color-success); --success-wash:var(--color-success-wash); --danger:var(--color-danger); --danger-wash:var(--color-danger-wash); --radius-card:30px; --radius-button:14px; }
 * { box-sizing:border-box; }
 html { background:var(--canvas); }
 body { margin:0; background:var(--canvas); color:var(--ink); font-family:var(--font-sans); font-size:16px; line-height:1.5; }

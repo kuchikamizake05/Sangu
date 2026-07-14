@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import styles from "./app-shell.module.css";
-import { ActivityIcon, CalendarIcon, HomeIcon, UserIcon } from "./ui/icons";
+import { ActivityIcon, CalendarIcon, HomeIcon, SendIcon, UserIcon } from "./ui/icons";
 
 type AppShellProps = {
   children: ReactNode;
@@ -47,6 +47,34 @@ function TabBar({ pathname }: { pathname: string }) {
   );
 }
 
+function Sidebar({ pathname }: { pathname: string }) {
+  const primaryNav = navigation.filter((item) => item.href !== "/account");
+  const accountNav = navigation.filter((item) => item.href === "/account");
+
+  return (
+    <nav className={styles.sidebar} aria-label="Navigasi aplikasi (desktop)">
+      <a className={`${styles.brand} ${styles.sidebarBrand}`} href="/app" aria-label="Sangu beranda">sangu<span>·</span></a>
+      {primaryNav.map(({ href, label, Icon }) => (
+        <a key={href} href={href} aria-current={isCurrentPath(pathname, href) ? "page" : undefined} className={styles.sideItem}>
+          <Icon className={styles.sideIcon} />
+          <span>{label}</span>
+        </a>
+      ))}
+      <a href="/send" className={styles.sideCta}>
+        <SendIcon className={styles.sideIcon} />
+        <span>Kirim</span>
+      </a>
+      <div className={styles.sideSpacer} />
+      {accountNav.map(({ href, label, Icon }) => (
+        <a key={href} href={href} aria-current={isCurrentPath(pathname, href) ? "page" : undefined} className={styles.sideItem}>
+          <Icon className={styles.sideIcon} />
+          <span>{label}</span>
+        </a>
+      ))}
+    </nav>
+  );
+}
+
 export function AppShell({ children, mode = "sender", variant = "default" }: AppShellProps) {
   const pathname = usePathname() ?? "/";
 
@@ -58,9 +86,12 @@ export function AppShell({ children, mode = "sender", variant = "default" }: App
     return <main className={styles.barePage} data-mode={mode} data-variant={variant}><div className={styles.bareContent}>{children}</div></main>;
   }
 
-  return <main className={styles.page} data-mode={mode} data-variant={variant}>
-    <header className={styles.header}><Brand /></header>
-    <div className={styles.content}>{children}</div>
-    <TabBar pathname={pathname} />
-  </main>;
+  return <div className={styles.shell} data-mode={mode} data-variant={variant}>
+    <Sidebar pathname={pathname} />
+    <main className={styles.page}>
+      <header className={styles.header}><Brand /></header>
+      <div className={styles.content}>{children}</div>
+      <TabBar pathname={pathname} />
+    </main>
+  </div>;
 }

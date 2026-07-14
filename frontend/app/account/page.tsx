@@ -50,7 +50,8 @@ function AccountContent() {
     <h1 className="mt-2 text-4xl font-extrabold tracking-[-.06em]">{profile.name}</h1>
     <p className="mt-3 max-w-xl text-muted">{profile.phoneMasked}</p>
 
-    <Card className="mt-8">
+    <div className="lg:mt-8 lg:grid lg:grid-cols-2 lg:items-start lg:gap-5">
+    <Card className="mt-8 lg:mt-0">
       <p className="text-sm font-bold">Sidik jari</p>
       {profile.hasPasskey ? (
         <div className="mt-4 flex items-center justify-between gap-4 rounded-2xl bg-success-wash p-4">
@@ -66,10 +67,11 @@ function AccountContent() {
       {error && <p className="mt-3 text-sm font-semibold text-danger" role="alert">{error}</p>}
     </Card>
 
-    <Card className="mt-5">
+    <Card className="mt-5 lg:mt-0">
       <p className="text-sm font-bold">Keluar dari akun ini</p>
       <p className="mt-2 text-sm text-muted">Kamu bisa masuk lagi kapan saja dengan nomor HP-mu.</p>
       <Button className="mt-5 !bg-danger !text-white" variant="secondary" fullWidth onClick={logout}>Keluar</Button>
     </Card>
+    </div>
   </div>;
 }

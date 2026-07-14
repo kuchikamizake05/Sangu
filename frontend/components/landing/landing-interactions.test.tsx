@@ -84,6 +84,17 @@ describe("RateSection", () => {
     expect(screen.getByRole("link", { name: "Bandingkan dengan kurs Google" })).toHaveAttribute("href", expect.stringContaining("HKD+to+IDR"));
   });
 
+  it("offers USD as a source currency and calculates its rate", async () => {
+    render(<RateSection />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Mata uang asal" }));
+    fireEvent.click(screen.getByRole("option", { name: /USD/i }));
+
+    await waitFor(() => expect(screen.getByText(/1 USD .*4\.000 IDR/)).toBeInTheDocument());
+    expect(screen.getByRole("textbox", { name: /Jumlah dalam Dolar AS/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Bandingkan dengan kurs Google" })).toHaveAttribute("href", expect.stringContaining("USD+to+IDR"));
+  });
+
   it("closes the currency menu when Escape is pressed", () => {
     render(<RateSection />);
 

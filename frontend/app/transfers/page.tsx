@@ -59,7 +59,7 @@ export default function TransfersPage() {
   const filtered = transfers ? filterTransfers(transfers, filter) : [];
   const groups = useMemo(() => groupByMonth(filtered), [filtered]);
 
-  return <AuthGuard><AppShell><div className="mx-auto max-w-2xl pb-12">
+  return <AuthGuard><AppShell><div className="mx-auto max-w-2xl pb-12 lg:max-w-3xl">
     <p className="mt-1 text-xs font-extrabold tracking-[.15em] text-brand-deep">RIWAYAT</p>
     <h1 className="mt-2 text-3xl font-extrabold tracking-[-.05em]">Aktivitas</h1>
     <p className="mt-2 text-sm text-muted">Pantau semua kiriman yang pernah kamu buat.</p>
