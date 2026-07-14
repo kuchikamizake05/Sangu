@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import type { Corridor, Quote } from "@/lib/api";
+import { CORRIDORS } from "@/lib/corridors";
 import { Numpad, type NumpadKey } from "./numpad";
 
 function amountFontSize(displayValue: string): string {
@@ -30,7 +31,7 @@ export function AmountScreen({
   onContinue: () => void;
   canContinue: boolean;
 }) {
-  const symbol = corridor === "MY" ? "RM" : "HK$";
+  const symbol = CORRIDORS[corridor].symbol;
   const hasAmount = amount.length > 0;
   const displayValue = hasAmount ? amount : "0";
 

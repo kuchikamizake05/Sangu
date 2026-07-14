@@ -3,12 +3,12 @@
 import { Button } from "@/components/ui/button";
 import { TextInput } from "@/components/ui/field";
 import type { Corridor, PayoutMethod } from "@/lib/api";
+import { CORRIDORS, CORRIDOR_ORDER } from "@/lib/corridors";
 import { isE164Phone } from "@/lib/send-flow";
 
-const corridorChoices: Array<{ value: Corridor; flag: string; label: string; suffix: string }> = [
-  { value: "MY", flag: "🇲🇾", label: "Malaysia", suffix: "→ RM" },
-  { value: "HK", flag: "🇭🇰", label: "Hong Kong", suffix: "→ HK$" },
-];
+const corridorChoices: Array<{ value: Corridor; flag: string; label: string; suffix: string }> = CORRIDOR_ORDER.map(
+  (value) => ({ value, flag: CORRIDORS[value].flag, label: CORRIDORS[value].country, suffix: `→ ${CORRIDORS[value].symbol}` }),
+);
 
 const payoutChoices: Array<{ value: PayoutMethod; label: string }> = [
   { value: "dana", label: "DANA" },

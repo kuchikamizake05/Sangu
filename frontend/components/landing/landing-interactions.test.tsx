@@ -71,7 +71,7 @@ describe("RateSection", () => {
   it("lets a sender select a corridor and calculates the received amount", async () => {
     render(<RateSection />);
 
-    await waitFor(() => expect(screen.getByText(/1 MYR .*4\.000 IDR/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/1 USD .*4\.000 IDR/)).toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: "Mata uang asal" }));
     fireEvent.click(screen.getByRole("option", { name: /HKD/i }));
 
@@ -93,6 +93,17 @@ describe("RateSection", () => {
     await waitFor(() => expect(screen.getByText(/1 USD .*4\.000 IDR/)).toBeInTheDocument());
     expect(screen.getByRole("textbox", { name: /Jumlah dalam Dolar AS/i })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Bandingkan dengan kurs Google" })).toHaveAttribute("href", expect.stringContaining("USD+to+IDR"));
+  });
+
+  it("offers JPY as a source currency and calculates its rate", async () => {
+    render(<RateSection />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Mata uang asal" }));
+    fireEvent.click(screen.getByRole("option", { name: /JPY/i }));
+
+    await waitFor(() => expect(screen.getByText(/1 JPY .*4\.000 IDR/)).toBeInTheDocument());
+    expect(screen.getByRole("textbox", { name: /Jumlah dalam Yen Jepang/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Bandingkan dengan kurs Google" })).toHaveAttribute("href", expect.stringContaining("JPY+to+IDR"));
   });
 
   it("closes the currency menu when Escape is pressed", () => {

@@ -3,7 +3,7 @@
 // - feeIdr & perbandingan Western Union = ESTIMASI/DEMO, wajib dilabeli + sumber + timestamp.
 import type { Corridor } from "./types.js";
 
-const CURRENCY: Record<Corridor, string> = { MY: "MYR", HK: "HKD" };
+const CURRENCY: Record<Corridor, string> = { MY: "MYR", HK: "HKD", US: "USD", JP: "JPY" };
 const FX_API = process.env.FX_API_URL ?? "https://open.er-api.com/v6/latest";
 
 // Estimasi biaya kompetitor untuk fitur transparansi — ANGKA DEMO, bukan kutipan resmi.
@@ -20,12 +20,12 @@ export async function foreignToUsdRate(corridor: Corridor): Promise<number> {
 }
 
 /** Kurs USD → mata uang tampilan saldo + IDR (sekali fetch). */
-export async function ratesFromUsd(): Promise<{ MYR: number; HKD: number; IDR: number }> {
+export async function ratesFromUsd(): Promise<{ MYR: number; HKD: number; JPY: number; IDR: number }> {
   const res = await fetch(`${FX_API}/USD`);
   const data = (await res.json()) as { rates?: Record<string, number> };
-  const { MYR, HKD, IDR } = data.rates ?? {};
-  if (!MYR || !HKD || !IDR) throw new Error("FX rate USD tidak tersedia");
-  return { MYR, HKD, IDR };
+  const { MYR, HKD, JPY, IDR } = data.rates ?? {};
+  if (!MYR || !HKD || !JPY || !IDR) throw new Error("FX rate USD tidak tersedia");
+  return { MYR, HKD, JPY, IDR };
 }
 
 /** Konversi stroops USDC (7 desimal) → nominal mata uang koridor (string 2 desimal). */

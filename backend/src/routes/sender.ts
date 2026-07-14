@@ -39,13 +39,18 @@ import {
   updateRecurring,
 } from "../lib/db.js";
 import { maskPhone } from "../lib/auth.js";
-import type {
-  Corridor,
-  PrepareSendRequest,
-  PrepareSendResponse,
-  SubmitSendRequest,
-  SubmitSendResponse,
+import {
+  isCorridor,
+  type Corridor,
+  type PrepareSendRequest,
+  type PrepareSendResponse,
+  type SubmitSendRequest,
+  type SubmitSendResponse,
 } from "../lib/types.js";
+
+// Simbol mata uang per koridor — untuk pesan error saldo yang manusiawi.
+const CORRIDOR_SYMBOL: Record<Corridor, string> = { MY: "RM", HK: "HK$", US: "$", JP: "¥" };
+const CORRIDOR_ERROR = "Pilih negara asal kiriman: Malaysia, Hong Kong, Amerika Serikat, atau Jepang.";
 
 const BASE = process.env.PUBLIC_BASE_URL ?? "http://localhost:3000";
 // Expiry default 72 jam; bisa dipendekkan via env untuk demo refund otomatis.
@@ -71,7 +76,7 @@ export default async function senderRoutes(app: FastifyInstance) {
 
   app.get("/api/quote", async (req, reply) => {
     const { corridor, amountForeign } = req.query as { corridor: Corridor; amountForeign: string };
-    if (corridor !== "MY" && corridor !== "HK") return badRequest(reply, "Pilih negara asal kiriman: Malaysia atau Hong Kong.");
+    if (!isCorridor(corridor)) return badRequest(reply, CORRIDOR_ERROR);
     const amt = Number(amountForeign);
     if (!Number.isFinite(amt) || amt <= 0) return badRequest(reply, "Jumlah kiriman tidak valid.");
     return getQuote(corridor, amt);
@@ -80,8 +85,7 @@ export default async function senderRoutes(app: FastifyInstance) {
   // Langkah 1 — siapkan deposit (XDR unsigned untuk di-sign passkey wallet).
   app.post("/api/send/prepare", authed, async (req, reply): Promise<unknown> => {
     const body = req.body as PrepareSendRequest;
-    if (body.corridor !== "MY" && body.corridor !== "HK")
-      return badRequest(reply, "Pilih negara asal kiriman: Malaysia atau Hong Kong.");
+    if (!isCorridor(body.corridor)) return badRequest(reply, CORRIDOR_ERROR);
     const amt = Number(body.amountForeign);
     if (!Number.isFinite(amt) || amt <= 0) return badRequest(reply, "Jumlah kiriman tidak valid.");
     if (!E164.test(body.recipientPhone ?? ""))
@@ -104,7 +108,7 @@ export default async function senderRoutes(app: FastifyInstance) {
     let unsignedXDR = "DEMO_UNSIGNED_XDR"; // penanda demo-mode — frontend boleh skip sign
     if (isOnchainEnabled() && walletAddress) {
       // Cek saldo dulu supaya pengguna dapat pesan yang jelas (bukan error simulasi mentah).
-      const currencyLabel = body.corridor === "HK" ? "HK$" : "RM";
+      const currencyLabel = CORRIDOR_SYMBOL[body.corridor];
       try {
         const balanceStroops = await getUsdcBalanceStroops(walletAddress);
         if (balanceStroops < BigInt(quote.usdcStroops)) {
@@ -231,8 +235,7 @@ export default async function senderRoutes(app: FastifyInstance) {
       amountForeign: string;
       dayOfMonth: number;
     };
-    if (body.corridor !== "MY" && body.corridor !== "HK")
-      return badRequest(reply, "Pilih negara asal kiriman: Malaysia atau Hong Kong.");
+    if (!isCorridor(body.corridor)) return badRequest(reply, CORRIDOR_ERROR);
     if (!E164.test(body.recipientPhone ?? ""))
       return badRequest(reply, "Nomor penerima harus diawali kode negara, contoh +62…");
     const day = Number(body.dayOfMonth);
@@ -313,7 +316,7 @@ export default async function senderRoutes(app: FastifyInstance) {
       patch.recipientPhone = body.recipientPhone;
     }
     if (body.corridor !== undefined) {
-      if (body.corridor !== "MY" && body.corridor !== "HK") return badRequest(reply, "Pilih negara asal kiriman: Malaysia atau Hong Kong.");
+      if (!isCorridor(body.corridor)) return badRequest(reply, CORRIDOR_ERROR);
       patch.corridor = body.corridor;
     }
     if (body.amountForeign !== undefined) {

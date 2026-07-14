@@ -2,6 +2,7 @@
 // Menyimpan mapping token<->escrow, secret, status transfer, OTP, dan jadwal recurring.
 import pg from "pg";
 import { randomUUID } from "node:crypto";
+import type { Corridor } from "./types.js";
 
 export type TransferStatus = "PENDING" | "CLAIMED" | "PAID_OUT" | "REFUNDED" | "EXPIRED";
 export type TransferEventType = "CREATED" | "DEPOSITED" | "CLAIMED" | "PAID_OUT" | "REFUNDED" | "EXPIRED";
@@ -16,7 +17,7 @@ export interface TransferRecord {
   token: string;
   escrowId: string | null;
   status: TransferStatus;
-  corridor: "MY" | "HK";
+  corridor: Corridor;
   amountForeign: string;
   amountUsdcStroops: string;
   amountIdr: string;
@@ -55,7 +56,7 @@ export interface SenderRecord {
   passkeyPublicKey: string | null; // base64url COSE public key
   passkeyCounter: number;
   walletAddress: string | null; // alamat smart wallet passkey (C.../G...)
-  corridor?: "MY" | "HK" | null; // corridor pengirim; null/undefined → default MYR (lihat wallet.ts)
+  corridor?: Corridor | null; // corridor pengirim; null/undefined → default MYR (lihat wallet.ts)
   createdAt: number;
 }
 
@@ -63,7 +64,7 @@ export interface SenderRecord {
 // (MYR/HKD), string desimal (2 angka di belakang koma), konsisten dgn amountForeign di transfers.
 export interface WalletBalanceRecord {
   senderId: string;
-  corridor: "MY" | "HK";
+  corridor: Corridor;
   balanceForeign: string;
   updatedAt: number;
 }
@@ -72,7 +73,7 @@ export interface RecurringRecord {
   recurringId: string;
   senderId: string | null;
   recipientPhone: string;
-  corridor: "MY" | "HK";
+  corridor: Corridor;
   amountForeign: string;
   dayOfMonth: number;
   status: "ACTIVE" | "PAUSED";
@@ -248,7 +249,7 @@ function rowToTransfer(row: Record<string, unknown>): TransferRecord {
     token: row.token as string,
     escrowId: row.escrowId as string | null,
     status: row.status as TransferStatus,
-    corridor: row.corridor as "MY" | "HK",
+    corridor: row.corridor as Corridor,
     amountForeign: row.amountForeign as string,
     amountUsdcStroops: row.amountUsdcStroops as string,
     amountIdr: row.amountIdr as string,
@@ -456,7 +457,7 @@ function rowToRecurring(row: Record<string, unknown>): RecurringRecord {
     recurringId: row.recurringId as string,
     senderId: (row.senderId as string | null) ?? null,
     recipientPhone: row.recipientPhone as string,
-    corridor: row.corridor as "MY" | "HK",
+    corridor: row.corridor as Corridor,
     amountForeign: row.amountForeign as string,
     dayOfMonth: Number(row.dayOfMonth),
     status: row.status as "ACTIVE" | "PAUSED",
@@ -535,7 +536,7 @@ function rowToSender(row: Record<string, unknown>): SenderRecord {
     passkeyPublicKey: row.passkeyPublicKey as string | null,
     passkeyCounter: Number(row.passkeyCounter ?? 0),
     walletAddress: row.walletAddress as string | null,
-    corridor: (row.corridor as "MY" | "HK" | null) ?? null,
+    corridor: (row.corridor as Corridor | null) ?? null,
     createdAt: Number(row.createdAt),
   };
 }
@@ -635,7 +636,7 @@ export async function consumeAuthChallenge(
 function rowToWalletBalance(row: Record<string, unknown>): WalletBalanceRecord {
   return {
     senderId: row.senderId as string,
-    corridor: row.corridor as "MY" | "HK",
+    corridor: row.corridor as Corridor,
     balanceForeign: row.balanceForeign as string,
     updatedAt: Number(row.updatedAt),
   };
@@ -644,7 +645,7 @@ function rowToWalletBalance(row: Record<string, unknown>): WalletBalanceRecord {
 /** Ambil saldo dompet sender; bila belum ada baris, buat baru dengan saldo 0.00. */
 export async function getOrCreateWalletBalance(
   senderId: string,
-  corridor: "MY" | "HK",
+  corridor: Corridor,
 ): Promise<WalletBalanceRecord> {
   const existing = await query(`SELECT * FROM wallet_balances WHERE "senderId" = $1`, [senderId]);
   if (existing.rows[0]) return rowToWalletBalance(existing.rows[0]);
@@ -665,7 +666,7 @@ export async function getOrCreateWalletBalance(
 /** Set saldo dompet sender ke nilai baru (string desimal, mis. hasil top-up). */
 export async function setWalletBalance(
   senderId: string,
-  corridor: "MY" | "HK",
+  corridor: Corridor,
   balanceForeign: string,
 ): Promise<void> {
   const ts = nowSec();

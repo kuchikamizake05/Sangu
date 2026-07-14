@@ -15,7 +15,7 @@ import {
   submitWalletDeploy,
   transferUsdcFromTreasury,
 } from "../stellar/escrow.js";
-import type { Corridor, WalletBalanceResponse } from "../lib/types.js";
+import { isCorridor, type Corridor, type WalletBalanceResponse } from "../lib/types.js";
 
 const MAX_TOPUP = 50_000;
 
@@ -25,13 +25,13 @@ function badRequest(reply: { code: (n: number) => unknown }, message: string) {
 }
 
 /** corridor sender; sender belum punya corridor tersimpan → default MY (MYR). */
-function senderCorridor(corridor: "MY" | "HK" | null | undefined): Corridor {
-  return corridor === "HK" ? "HK" : "MY";
+function senderCorridor(corridor: string | null | undefined): Corridor {
+  return isCorridor(corridor) ? corridor : "MY";
 }
 
 // Mata uang TAMPILAN saldo — bebas dipilih pengguna (wallet sendiri berisi dolar digital,
 // jadi USD = nilai apa adanya). Default USD supaya netral untuk pekerja dari negara mana pun.
-const DISPLAY_CURRENCIES = ["USD", "MYR", "HKD"] as const;
+const DISPLAY_CURRENCIES = ["USD", "MYR", "HKD", "JPY"] as const;
 type DisplayCurrency = (typeof DISPLAY_CURRENCIES)[number];
 
 function parseDisplayCurrency(value: unknown): DisplayCurrency {

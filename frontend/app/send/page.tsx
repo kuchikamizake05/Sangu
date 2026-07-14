@@ -9,6 +9,7 @@ import { SendSuccess } from "@/components/sender/send-success";
 import { TransactionConfirmation } from "@/components/sender/transaction-confirmation";
 import { ApiError, markRecurringSent, prepareSend, type Corridor, type PayoutMethod, type PrepareSendResponse } from "@/lib/api";
 import { formatForeignAmount, isE164Phone, appendDigit } from "@/lib/send-flow";
+import { isCorridor } from "@/lib/corridors";
 import { useQuote } from "@/lib/use-quote";
 import type { NumpadKey } from "@/components/sender/numpad";
 
@@ -18,7 +19,7 @@ const stepIndex: Record<Step, number> = { recipient: 1, amount: 2, confirm: 3, s
 
 export default function SendPage() {
   const [step, setStep] = useState<Step>("recipient");
-  const [corridor, setCorridor] = useState<Corridor>("MY");
+  const [corridor, setCorridor] = useState<Corridor>("US");
   const [phone, setPhone] = useState("");
   const [methodHint, setMethodHint] = useState<PayoutMethod | null>(null);
   const [amount, setAmount] = useState("");
@@ -41,11 +42,11 @@ export default function SendPage() {
     const qRecurringId = params.get("recurringId");
 
     if (qRecipient) setPhone(qRecipient);
-    if (qCorridor === "MY" || qCorridor === "HK") setCorridor(qCorridor);
+    if (isCorridor(qCorridor)) setCorridor(qCorridor);
     if (qAmount) setAmount(qAmount);
     if (qRecurringId) setRecurringId(qRecurringId);
 
-    const corridorValid = qCorridor === "MY" || qCorridor === "HK";
+    const corridorValid = isCorridor(qCorridor);
     if (qRecipient && isE164Phone(qRecipient) && corridorValid && qAmount && Number(qAmount) > 0) {
       setStep("amount");
     }

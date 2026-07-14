@@ -18,13 +18,15 @@ import {
   type WalletBalance,
 } from "@/lib/api";
 import { useSession } from "@/lib/auth-session";
+import { CORRIDORS } from "@/lib/corridors";
 import { ChevronDownIcon, EyeIcon, EyeOffIcon } from "@/components/ui/icons";
 
-const CURRENCY_PREFIX: Record<WalletBalance["currency"], string> = { USD: "$", MYR: "RM", HKD: "HK$" };
+const CURRENCY_PREFIX: Record<WalletBalance["currency"], string> = { USD: "$", MYR: "RM", HKD: "HK$", JPY: "¥" };
 const CURRENCIES: Array<{ code: BalanceCurrency; label: string }> = [
   { code: "USD", label: "Dolar AS" },
   { code: "MYR", label: "Ringgit Malaysia" },
   { code: "HKD", label: "Dolar Hong Kong" },
+  { code: "JPY", label: "Yen Jepang" },
 ];
 
 function CurrencyDropdown({ currency, onChange }: { currency: BalanceCurrency; onChange: (next: BalanceCurrency) => void }) {
@@ -250,7 +252,7 @@ export default function SenderPage() {
           {dueSchedule && (
             <Card className="!border-peach !bg-peach-wash">
               <p className="text-sm font-bold text-brand-deep">
-                Sangu Bulanan siap dikirim — {dueSchedule.recipientMasked} · RM {formatAmount(dueSchedule.amountForeign)}
+                Sangu Bulanan siap dikirim — {dueSchedule.recipientMasked} · {CORRIDORS[dueSchedule.corridor].symbol} {formatAmount(dueSchedule.amountForeign)}
               </p>
               <div className="mt-4 flex flex-wrap items-center gap-4">
                 <a

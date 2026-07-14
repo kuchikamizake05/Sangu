@@ -8,21 +8,23 @@ import { CheckIcon, ChevronDownIcon } from "./icons";
 type Currency = { code: string; flag: string; label: string; fallbackToIdr: number };
 
 const CURRENCIES: Currency[] = [
+  { code: "USD", flag: "🇺🇸", label: "Dolar AS", fallbackToIdr: 16250 },
   { code: "MYR", flag: "🇲🇾", label: "Ringgit Malaysia", fallbackToIdr: 3685 },
   { code: "HKD", flag: "🇭🇰", label: "Dolar Hong Kong", fallbackToIdr: 2110 },
-  { code: "USD", flag: "🇺🇸", label: "Dolar AS", fallbackToIdr: 16250 },
+  { code: "JPY", flag: "🇯🇵", label: "Yen Jepang", fallbackToIdr: 105 },
 ];
 
 const TIMEZONE_CURRENCY: Record<string, string> = {
   "Asia/Kuala_Lumpur": "MYR", "Asia/Kuching": "MYR",
   "Asia/Hong_Kong": "HKD", "Asia/Macau": "HKD",
+  "Asia/Tokyo": "JPY",
 };
 
 function detectCurrency(): string {
   try {
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    return TIMEZONE_CURRENCY[timezone] ?? "MYR";
-  } catch { return "MYR"; }
+    return TIMEZONE_CURRENCY[timezone] ?? "USD";
+  } catch { return "USD"; }
 }
 
 function CurrencyPicker({ code, onChange }: { code: string; onChange: (code: string) => void }) {
@@ -56,7 +58,7 @@ function CurrencyPicker({ code, onChange }: { code: string; onChange: (code: str
 }
 
 export function RateSection() {
-  const [code, setCode] = useState("MYR");
+  const [code, setCode] = useState("USD");
   const [amount, setAmount] = useState("500");
   const [liveRate, setLiveRate] = useState<number | null>(null);
 

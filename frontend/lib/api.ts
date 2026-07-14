@@ -61,7 +61,7 @@ async function parseOrThrow<T>(res: Response, fallbackMessage: string): Promise<
   return res.json();
 }
 
-export type Corridor = "MY" | "HK";
+export type Corridor = "MY" | "HK" | "US" | "JP";
 export type PayoutMethod = "dana" | "gopay" | "bank" | "cash";
 
 export interface Quote {
@@ -275,7 +275,7 @@ export async function getMe(): Promise<SenderProfile & { walletAddress: string |
 
 // ── Saldo demo (wallet) ──
 
-export type BalanceCurrency = "USD" | "MYR" | "HKD";
+export type BalanceCurrency = "USD" | "MYR" | "HKD" | "JPY";
 
 export interface WalletBalance {
   currency: BalanceCurrency;

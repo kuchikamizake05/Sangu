@@ -1,5 +1,7 @@
+import Image from "next/image";
 import styles from "./landing.module.css";
 import { Reveal } from "./reveal";
+import qrImg from "@/asset/qr-web/qr-sangu.png";
 
 export function DownloadCta() {
   return <section className={styles.section}>
@@ -19,9 +21,9 @@ export function DownloadCta() {
             </div>
           </div>
           <figure className={styles.qrCard}>
-            <div className={styles.qr} role="img" aria-label="Kode QR placeholder untuk membuka Sangu">
-              {Array.from({ length: 49 }, (_, i) => <i key={i} />)}
-            </div>
+            <a href="/app" aria-label="Buka Sangu">
+              <Image className={styles.qrImg} src={qrImg} alt="Kode QR untuk membuka Sangu" width={230} height={230} priority />
+            </a>
             <figcaption>Scan untuk buka Sangu</figcaption>
           </figure>
         </div>

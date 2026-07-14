@@ -1,4 +1,5 @@
 import type { Corridor } from "./api";
+import { CORRIDORS } from "./corridors";
 
 export function isE164Phone(value: string) {
   return /^\+[1-9]\d{7,14}$/.test(value.replaceAll(" ", ""));
@@ -7,7 +8,7 @@ export function isE164Phone(value: string) {
 export function formatForeignAmount(value: string, corridor: Corridor) {
   const amount = Number(value) || 0;
   const number = new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount);
-  return corridor === "MY" ? `RM ${number}` : `HK$${number}`;
+  return `${CORRIDORS[corridor].symbol} ${number}`;
 }
 
 const MAX_INTEGER_DIGITS = 6;

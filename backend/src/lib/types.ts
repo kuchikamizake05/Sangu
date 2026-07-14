@@ -1,8 +1,14 @@
 // Tipe bersama — cermin dari docs/spesifikasi-teknis-pembagian-kerja.md §2.3
 // Frontend mengonsumsi bentuk yang sama.
 
-export type Corridor = "MY" | "HK";
+export type Corridor = "MY" | "HK" | "US" | "JP";
 export type PayoutMethod = "dana" | "gopay" | "bank" | "cash";
+
+// Koridor asal kiriman yang didukung (negara tempat pengirim mengirim uang).
+export const CORRIDORS = ["MY", "HK", "US", "JP"] as const satisfies readonly Corridor[];
+export function isCorridor(value: unknown): value is Corridor {
+  return typeof value === "string" && (CORRIDORS as readonly string[]).includes(value);
+}
 
 export type TransferStatus =
   | "PENDING"
@@ -55,7 +61,7 @@ export interface SubmitSendResponse {
 // dikredit via /api/wallet/topup (mock on-ramp). Mode on-chain: TODO baca saldo USDC nyata
 // dari smart wallet via helper baca-saldo di stellar/ bila sudah tersedia.
 export interface WalletBalanceResponse {
-  currency: "USD" | "MYR" | "HKD";
+  currency: "USD" | "MYR" | "HKD" | "JPY";
   amount: string; // saldo dalam `currency`, string desimal (mis. "1840.00")
   idrEstimate: string; // estimasi rupiah, string bulat
   source: "onchain" | "demo";

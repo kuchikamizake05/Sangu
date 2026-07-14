@@ -63,10 +63,10 @@ describe("SendPage", () => {
     render(<SendPage />);
     fillPhoneAndContinue();
 
-    expect(screen.getByText("RM 0")).toBeInTheDocument();
+    expect(screen.getByText("$ 0")).toBeInTheDocument();
     typeAmount("250");
 
-    await waitFor(() => expect(getQuote).toHaveBeenCalledWith("MY", "250"));
+    await waitFor(() => expect(getQuote).toHaveBeenCalledWith("US", "250"));
     expect(await screen.findByText(/Rp 1.750.000 untuk penerima/)).toBeInTheDocument();
   });
 
@@ -86,12 +86,12 @@ describe("SendPage", () => {
     await screen.findByText(/Rp 1.750.000 untuk penerima/);
     fireEvent.click(screen.getByRole("button", { name: "Lanjutkan" }));
 
-    await waitFor(() => expect(prepareSend).toHaveBeenCalledWith({ corridor: "MY", amountForeign: "250", recipientPhone: "+628120000000", methodHint: undefined }));
+    await waitFor(() => expect(prepareSend).toHaveBeenCalledWith({ corridor: "US", amountForeign: "250", recipientPhone: "+628120000000", methodHint: undefined }));
     expect(await screen.findByRole("button", { name: "Konfirmasi dengan sidik jari" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Konfirmasi dengan sidik jari" }));
     expect(await screen.findByText("Terkirim!")).toBeInTheDocument();
-    expect(screen.getByText(/RM 250.00/)).toBeInTheDocument();
+    expect(screen.getByText(/\$ 250.00/)).toBeInTheDocument();
   });
 
   it("shows a retryable error when prepareSend fails", async () => {

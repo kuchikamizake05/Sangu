@@ -129,11 +129,7 @@
 .storeBadge strong { font-size:12px; letter-spacing:-.02em; }
 .qrCard { position:relative; display:grid; justify-items:center; gap:14px; background:#fff; color:var(--ink); border-radius:26px; padding:24px 24px 20px; box-shadow:0 40px 80px -40px rgba(0,0,0,.7); }
 .qrCard figcaption { font-size:13px; font-weight:800; }
-.qr { width:230px; height:230px; border-radius:18px; background:var(--surface); border:1px solid var(--line); padding:16px; display:grid; grid-template-columns:repeat(7, 1fr); grid-template-rows:repeat(7, 1fr); gap:4px; }
-.qr i { border-radius:3px; background:var(--ink); }
-.qr i:nth-child(even) { background:transparent; }
-.qr i:nth-child(3n) { background:var(--ink); }
-.qr i:nth-child(7n) { background:transparent; }
+.qrImg { width:230px; height:230px; border-radius:18px; background:var(--surface); border:1px solid var(--line); padding:16px; object-fit:contain; display:block; }
 
 /* ---------- currency dropdown ---------- */
 .ccy { position:relative; }

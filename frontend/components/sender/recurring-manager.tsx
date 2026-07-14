@@ -5,13 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Field, TextInput } from "@/components/ui/field";
 import { createRecurring, deleteRecurring, getRecurring, setRecurringStatus, updateRecurring, type Corridor, type RecurringSchedule } from "@/lib/api";
+import { CORRIDORS, CORRIDOR_ORDER } from "@/lib/corridors";
 import { PauseIcon, PencilIcon, PlayIcon, TrashIcon } from "@/components/ui/icons";
 import { isE164Phone } from "@/lib/send-flow";
 
 type PendingAction = { kind: "pause" | "resume" | "delete"; schedule: RecurringSchedule } | null;
 
 type CreateForm = { recipientPhone: string; corridor: Corridor; amountForeign: string; dayOfMonth: string };
-const EMPTY_CREATE_FORM: CreateForm = { recipientPhone: "", corridor: "MY", amountForeign: "", dayOfMonth: "1" };
+const EMPTY_CREATE_FORM: CreateForm = { recipientPhone: "", corridor: "US", amountForeign: "", dayOfMonth: "1" };
 
 export function RecurringManager() {
   const [schedules, setSchedules] = useState<RecurringSchedule[] | null>(null);
@@ -117,15 +118,15 @@ export function RecurringManager() {
         <Field label="Nomor penerima"><TextInput inputMode="tel" placeholder="+62812…" value={createForm.recipientPhone} onChange={(event) => setCreateForm({ ...createForm, recipientPhone: event.target.value })} /></Field>
         <div>
           <p className="mb-2 text-xs font-semibold text-muted">Kirim dari</p>
-          <div className="flex gap-2" role="group" aria-label="Negara asal kiriman">
-            {([["MY", "Malaysia"], ["HK", "Hong Kong"]] as const).map(([value, label]) => (
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" role="group" aria-label="Negara asal kiriman">
+            {CORRIDOR_ORDER.map((value) => (
               <button key={value} type="button" aria-pressed={createForm.corridor === value} onClick={() => setCreateForm({ ...createForm, corridor: value })} className={`rounded-[14px] border px-4 py-2 text-sm font-bold transition ${createForm.corridor === value ? "border-brand bg-peach text-brand-deep" : "border-line text-ink hover:border-ink"}`}>
-                {label}
+                {CORRIDORS[value].country}
               </button>
             ))}
           </div>
         </div>
-        <Field label={createForm.corridor === "MY" ? "Jumlah (RM)" : "Jumlah (HK$)"}><TextInput inputMode="decimal" placeholder="100" value={createForm.amountForeign} onChange={(event) => setCreateForm({ ...createForm, amountForeign: event.target.value })} /></Field>
+        <Field label={`Jumlah (${CORRIDORS[createForm.corridor].symbol})`}><TextInput inputMode="decimal" placeholder="100" value={createForm.amountForeign} onChange={(event) => setCreateForm({ ...createForm, amountForeign: event.target.value })} /></Field>
         <Field label="Tanggal tiap bulan (1–28)"><TextInput inputMode="numeric" value={createForm.dayOfMonth} onChange={(event) => setCreateForm({ ...createForm, dayOfMonth: event.target.value })} /></Field>
         <div className="grid gap-2 sm:grid-cols-2"><Button variant="secondary" onClick={() => setShowCreate(false)}>Batal</Button><Button onClick={saveCreate} disabled={busy}>{busy ? "Menyimpan…" : "Simpan jadwal"}</Button></div>
         {notice && <p role="status" className="text-sm font-semibold text-danger">{notice}</p>}
@@ -149,7 +150,7 @@ export function RecurringManager() {
       <div className="w-full max-w-lg rounded-t-[30px] bg-surface p-6 pb-[calc(24px+env(safe-area-inset-bottom))] shadow-[0_-8px_30px_rgba(0,0,0,0.06)] lg:rounded-[30px] lg:pb-6 lg:shadow-2xl">
         <h2 id="schedule-edit-title" className="text-xl font-extrabold tracking-[-.04em]">Edit jadwal</h2>
         <div className="mt-5 grid gap-4">
-          <Field label={editing.corridor === "MY" ? "Jumlah (MYR)" : "Jumlah (HKD)"}><TextInput inputMode="decimal" value={editing.amountForeign} onChange={(event) => setEditing({ ...editing, amountForeign: event.target.value })} /></Field>
+          <Field label={`Jumlah (${CORRIDORS[editing.corridor].currency})`}><TextInput inputMode="decimal" value={editing.amountForeign} onChange={(event) => setEditing({ ...editing, amountForeign: event.target.value })} /></Field>
           <Field label="Tanggal tiap bulan"><TextInput inputMode="numeric" value={String(editing.dayOfMonth)} onChange={(event) => setEditing({ ...editing, dayOfMonth: Number(event.target.value) })} /></Field>
           <div className="grid gap-2 sm:grid-cols-2"><Button variant="secondary" onClick={() => setEditing(null)}>Batal</Button><Button onClick={saveEdit} disabled={busy}>Simpan</Button></div>
           {notice && <p role="status" className="text-sm font-semibold text-danger">{notice}</p>}
@@ -175,7 +176,7 @@ function ScheduleList({ schedules, onEdit, onAction }: { schedules: RecurringSch
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <strong className="block truncate text-lg">{schedule.recipientMasked}</strong>
-          <p className="mt-1 tabular-nums text-sm text-muted">{schedule.amountForeign} {schedule.corridor === "MY" ? "MYR" : "HKD"} - tiap tanggal {schedule.dayOfMonth}</p>
+          <p className="mt-1 tabular-nums text-sm text-muted">{schedule.amountForeign} {CORRIDORS[schedule.corridor].currency} - tiap tanggal {schedule.dayOfMonth}</p>
         </div>
         <span className={`shrink-0 text-xs font-bold ${schedule.status === "ACTIVE" ? "text-success" : "text-muted"}`}>{schedule.status === "ACTIVE" ? "Aktif" : "Dijeda"}</span>
       </div>

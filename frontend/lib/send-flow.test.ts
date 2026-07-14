@@ -12,8 +12,10 @@ describe("isE164Phone", () => {
 
 describe("formatForeignAmount", () => {
   it("formats decimal amounts with the selected corridor currency", () => {
-    expect(formatForeignAmount("500", "MY")).toBe("RM 500.00");
-    expect(formatForeignAmount("1234.5", "HK")).toBe("HK$1,234.50");
+    expect(formatForeignAmount("500", "MY")).toBe("RM 500.00");
+    expect(formatForeignAmount("1234.5", "HK")).toBe("HK$ 1,234.50");
+    expect(formatForeignAmount("500", "US")).toBe("$ 500.00");
+    expect(formatForeignAmount("2000", "JP")).toBe("¥ 2,000.00");
   });
 });
 
