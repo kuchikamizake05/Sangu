@@ -229,6 +229,64 @@ export async function startWithdraw(amountUsdc: string): Promise<WithdrawStart> 
   }
 }
 
+// ── Otomasi langkah interaktif (khusus reference anchor SDF) ──
+
+// Business server di balik SEP-24 Reference UI (SPA). Alurnya (hasil inspeksi bundle UI):
+// POST /start  (Bearer <token dari query interactiveUrl>)      -> { sessionId }
+// POST /submit (Bearer <sessionId>, body KYC mock + amount)    -> { sessionId }
+// Setelah itu status transaksi menjadi pending_user_transfer_start (siap dibayar).
+const ANCHOR_BUSINESS_SERVER_URL =
+  process.env.ANCHOR_BUSINESS_SERVER_URL ?? "https://anchor-reference-server-testanchor.stellar.org";
+
+/**
+ * Token di interactiveUrl adalah JWT ber-exp (~menit). Bila sudah lewat, langkah interaktif
+ * mustahil diselesaikan lagi — pemanggil harus menandai transfer terminal, bukan retry.
+ */
+export function interactiveTokenExpired(interactiveUrl: string): boolean {
+  try {
+    const token = new URL(interactiveUrl).searchParams.get("token");
+    if (!token) return true;
+    const payload = JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString()) as { exp?: number };
+    return typeof payload.exp === "number" && payload.exp * 1000 < Date.now();
+  } catch {
+    return true;
+  }
+}
+
+/**
+ * Selesaikan langkah interaktif SEP-24 secara terprogram — menggantikan manusia yang
+ * mengisi form mock. HANYA untuk demo dengan reference anchor SDF; anchor produksi
+ * ber-API penuh tidak butuh ini. Best-effort: lempar error yang jelas bila gagal
+ * (pemanggil menangani; penerima tidak terpengaruh — dana sudah di settlement).
+ * PENTING: amount wajib maks 2 desimal — anchor menolak "invalid significant decimals".
+ */
+export async function completeInteractiveWithdraw(interactiveUrl: string, amountUsdc: string): Promise<void> {
+  const token = new URL(interactiveUrl).searchParams.get("token");
+  if (!token) throw new Error("interactiveUrl tidak memuat query param 'token'");
+
+  const startRes = await fetch(`${ANCHOR_BUSINESS_SERVER_URL}/start`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!startRes.ok) throw new Error(`business server /start gagal: HTTP ${startRes.status}`);
+  const { sessionId } = (await startRes.json()) as { sessionId?: string };
+  if (!sessionId) throw new Error("business server /start tidak mengembalikan sessionId");
+
+  const submitRes = await fetch(`${ANCHOR_BUSINESS_SERVER_URL}/submit`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${sessionId}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      amount: Number(amountUsdc).toFixed(2),
+      name: "Sangu",
+      surname: "Operator",
+      email: "ops@sangu.demo",
+      bank: "Bank Demo",
+      account: "1234567890",
+    }),
+  });
+  if (!submitRes.ok) throw new Error(`business server /submit gagal: HTTP ${submitRes.status}`);
+}
+
 // ── SEP-24 cek status transaksi withdraw ──
 
 export interface WithdrawInfo {

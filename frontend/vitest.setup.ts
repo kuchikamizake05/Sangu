@@ -1,4 +1,6 @@
 import "@testing-library/jest-dom/vitest";
-import { beforeEach } from "vitest";
+import { afterEach } from "vitest";
 
-beforeEach(() => window.localStorage.setItem("sangu.sender-token", "test-session"));
+afterEach(() => {
+  window.localStorage.clear();
+});

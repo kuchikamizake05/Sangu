@@ -1,7 +1,11 @@
 import { expect, test } from "@playwright/test";
 
 test("sender sees the pending SEP-24 anchor status in transfer detail", async ({ page }) => {
-  await page.addInitScript(() => window.localStorage.setItem("sangu.sender-token", "e2e-session"));
+  await page.addInitScript(() => {
+    window.localStorage.setItem("sangu.token", "e2e-token");
+    window.localStorage.setItem("sangu.sender", JSON.stringify({ senderId: "e2e", name: "Tester", phoneMasked: "+60••••", hasPasskey: true }));
+  });
+  await page.route("**/api/auth/me", async (route) => route.fulfill({ json: { senderId: "e2e", name: "Tester", phoneMasked: "+60••••", hasPasskey: true, walletAddress: null } }));
   await page.route("**/api/transfers/anchor-transfer", async (route) => route.fulfill({ json: {
     transferId: "anchor-transfer",
     status: "PAID_OUT",

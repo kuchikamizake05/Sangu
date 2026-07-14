@@ -11,6 +11,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@simplewebauthn/browser": "^13.3.0",
     "@stellar/stellar-sdk": "^16.0.1",
     "next": "^15.0.0",
     "passkey-kit": "^0.12.1",

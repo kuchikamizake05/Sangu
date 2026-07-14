@@ -3,6 +3,7 @@ import AccountPage from "./page";
 import { getMe } from "@/lib/api";
 
 vi.mock("@/components/app-shell", () => ({ AppShell: ({ children }: { children: React.ReactNode }) => <>{children}</> }));
+vi.mock("@/components/auth-guard", () => ({ AuthGuard: ({ children }: { children: React.ReactNode }) => <>{children}</> }));
 vi.mock("@/lib/api", () => ({ getMe: vi.fn() }));
 
 describe("AccountPage", () => {

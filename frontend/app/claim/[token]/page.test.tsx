@@ -114,11 +114,11 @@ describe("ClaimPage", () => {
     expect(await screen.findByRole("status")).toHaveTextContent("Kode penarikan disalin.");
   });
 
-  it("guides the recipient through an interactive SEP-24 withdrawal", async () => {
+  it("shows a plain Rupiah result without any anchor or crypto vocabulary", async () => {
     vi.mocked(getClaim).mockResolvedValue({ senderName: "Andi", amountIdr: "1720000", corridor: "MY", status: "PENDING" });
     vi.mocked(requestOtp).mockResolvedValue({ sent: true });
     vi.mocked(verifyOtp).mockResolvedValue({ ok: true, claimSession: "session-1" });
-    vi.mocked(payout).mockResolvedValue({ status: "PAID_OUT", interactiveUrl: "https://anchor.example/interactive/withdrawal-1", anchorTxId: "anchor-1", instructions: "Selesaikan langkah verifikasi anchor." });
+    vi.mocked(payout).mockResolvedValue({ status: "PAID_OUT", simulatedPayout: true, instructions: "Dana sedang diproses ke DANA. Tidak ada yang perlu kamu lakukan lagi." });
     await act(async () => { render(<ClaimPage params={Promise.resolve({ token: "opaque-token" })} />); });
 
     fireEvent.click(await screen.findByRole("button", { name: "Cairkan sekarang" }));
@@ -126,9 +126,35 @@ describe("ClaimPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Verifikasi kode" }));
     fireEvent.click(await screen.findByRole("button", { name: "Cairkan uang" }));
 
-    expect(await screen.findByRole("heading", { name: "Pencairan sedang diproses" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Lanjutkan verifikasi pencairan" })).toHaveAttribute("href", "https://anchor.example/interactive/withdrawal-1");
-    expect(screen.getByText("Referensi anchor: anchor-1")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Pencairan diproses" })).toBeInTheDocument();
+    expect(screen.getByText(/Rp 1.720.000/)).toBeInTheDocument();
+    expect(screen.queryByText(/anchor/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /verifikasi/i })).not.toBeInTheDocument();
+  });
+
+  it("transitions to a success screen once the payout is finalized", async () => {
+    vi.mocked(getClaim)
+      .mockResolvedValueOnce({ senderName: "Andi", amountIdr: "1720000", corridor: "MY", status: "PENDING" })
+      .mockResolvedValue({ senderName: "Andi", amountIdr: "1720000", corridor: "MY", status: "PAID_OUT", payoutCompleted: true });
+    vi.mocked(requestOtp).mockResolvedValue({ sent: true });
+    vi.mocked(verifyOtp).mockResolvedValue({ ok: true, claimSession: "session-1" });
+    vi.mocked(payout).mockResolvedValue({ status: "PAID_OUT", simulatedPayout: true, instructions: "Dana sedang diproses ke DANA. Tidak ada yang perlu kamu lakukan lagi." });
+    await act(async () => { render(<ClaimPage params={Promise.resolve({ token: "opaque-token" })} />); });
+
+    fireEvent.click(await screen.findByRole("button", { name: "Cairkan sekarang" }));
+    fireEvent.change(await screen.findByRole("textbox", { name: "Kode OTP" }), { target: { value: "123456" } });
+    fireEvent.click(screen.getByRole("button", { name: "Verifikasi kode" }));
+    fireEvent.click(await screen.findByRole("button", { name: /^DANA/ }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Nomor DANA" }), { target: { value: "081234567890" } });
+
+    vi.useFakeTimers();
+    fireEvent.click(screen.getByRole("button", { name: "Cairkan uang" }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(100); });
+    expect(screen.getByRole("heading", { name: "Pencairan diproses" })).toBeInTheDocument();
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(4100); });
+    expect(screen.getByRole("heading", { name: /Dana sudah masuk/ })).toBeInTheDocument();
+    expect(screen.getByText("Pencairan selesai. Kamu bisa menutup halaman ini.")).toBeInTheDocument();
   });
 
   it("explains how to recover when a cash-out code cannot be copied", async () => {
