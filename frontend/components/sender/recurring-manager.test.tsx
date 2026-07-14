@@ -14,7 +14,7 @@ describe("RecurringManager", () => {
     fireEvent.click(screen.getByRole("button", { name: "Jeda jadwal" }));
     expect(screen.getByRole("dialog", { name: "Jeda jadwal ini?" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Konfirmasi jeda" }));
-    expect(await screen.findByRole("status")).toHaveTextContent("Jadwal dijeda.");
+    expect(await screen.findByText("Dijeda")).toBeInTheDocument();
     expect(setRecurringStatus).toHaveBeenCalledWith("monthly-1", "pause");
   });
 

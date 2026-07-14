@@ -13,7 +13,7 @@ describe("SendSuccess", () => {
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: vi.fn().mockResolvedValue(undefined) } });
     render(<SendSuccess amountLabel="RM 100" recipientPhone="+62812••••" claimUrl="https://sangu.test/claim/one" onBackHome={vi.fn()} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Bagikan link ke WhatsApp" }));
+    fireEvent.click(screen.getByRole("button", { name: "Bagikan link" }));
 
     await waitFor(() => expect(navigator.clipboard.writeText).toHaveBeenCalledWith("https://sangu.test/claim/one"));
     expect(screen.getByRole("status")).toHaveTextContent("Link claim sudah disalin.");
@@ -23,7 +23,7 @@ describe("SendSuccess", () => {
     Object.defineProperty(navigator, "share", { configurable: true, value: vi.fn().mockRejectedValue(new Error("cancelled")) });
     render(<SendSuccess amountLabel="RM 100" recipientPhone="+62812••••" claimUrl="https://sangu.test/claim/one" onBackHome={vi.fn()} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Bagikan link ke WhatsApp" }));
+    fireEvent.click(screen.getByRole("button", { name: "Bagikan link" }));
 
     expect(await screen.findByRole("status")).toHaveTextContent("Link claim belum dibagikan.");
   });
