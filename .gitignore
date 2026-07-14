@@ -28,3 +28,6 @@ target/
 
 .claude
 .superpowers/
+
+# Dokumen internal (tidak ikut repo publik)
+docs/demo-video-script.md
