@@ -11,5 +11,5 @@ export default defineConfig({
     trace: "on-first-retry",
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"], channel: "chrome" } }, { name: "mobile", use: { ...devices["Pixel 5"], channel: "chrome" } }],
-  webServer: { command: "npm.cmd run dev -- --port 3100", url: "http://127.0.0.1:3100", reuseExistingServer: false, timeout: 120000 },
+  webServer: { command: `${process.platform === "win32" ? "npm.cmd" : "npm"} run dev -- --port 3100`, url: "http://127.0.0.1:3100", reuseExistingServer: false, timeout: 120000 },
 });

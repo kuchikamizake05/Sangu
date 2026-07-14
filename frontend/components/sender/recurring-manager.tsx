@@ -73,23 +73,23 @@ export function RecurringManager() {
 
   return <section className="grid gap-5">
     <Card>
-      <p className="text-xs font-extrabold tracking-[.15em] text-[#9e1d0e]">SANGU BULANAN</p>
-      <h1 className="mt-2 text-3xl font-extrabold tracking-[-.05em]">Kiriman rutin untuk keluarga</h1>
-      <p className="mt-2 text-sm text-[#676767]">Setiap jadwal tetap meminta otorisasi passkey saat waktunya mengirim. Sangu tidak melakukan auto-debit.</p>
+      <p className="text-xs font-extrabold tracking-[.15em] text-brand-deep">JADWAL RUTIN</p>
+      <h1 className="mt-2 text-3xl font-extrabold tracking-[-.05em]">Sangu Bulanan</h1>
+      <p className="mt-2 text-sm text-muted">Setiap jadwal tetap meminta otorisasi passkey saat waktunya mengirim. Sangu tidak melakukan auto-debit.</p>
       {schedules && schedules.length > 0 && <div className="mt-5 flex gap-2 text-sm">
-        <span className="rounded-full bg-[#fff4eb] px-3 py-1 font-bold text-[#9e1d0e]">{activeSchedules.length} aktif</span>
-        {pausedSchedules.length > 0 && <span className="rounded-full bg-[#f3f3f3] px-3 py-1 font-bold text-[#676767]">{pausedSchedules.length} dijeda</span>}
+        <span className="rounded-full bg-success-wash px-3 py-1 font-bold text-success">{activeSchedules.length} aktif</span>
+        {pausedSchedules.length > 0 && <span className="rounded-full bg-line px-3 py-1 font-bold text-muted">{pausedSchedules.length} dijeda</span>}
       </div>}
     </Card>
 
     <Card>
-      {schedules === null ? <p className="text-sm text-[#676767]">Memuat jadwal…</p> : schedules.length === 0 ? <p className="text-center text-sm text-[#676767]">Belum ada jadwal. Buat jadwal dari Beranda untuk mulai.</p> : <div className="grid gap-6">
+      {schedules === null ? <p className="text-sm text-muted">Memuat jadwal…</p> : schedules.length === 0 ? <p className="text-center text-sm text-muted">Belum ada jadwal. Buat jadwal dari Beranda untuk mulai.</p> : <div className="grid gap-6">
         {activeSchedules.length > 0 && <section aria-labelledby="active-schedules-heading">
-          <div className="mb-3 flex items-center justify-between"><h2 id="active-schedules-heading" className="text-base font-extrabold">Jadwal aktif</h2><span className="text-xs font-bold text-[#9e1d0e]">{activeSchedules.length}</span></div>
+          <div className="mb-3 flex items-center justify-between"><h2 id="active-schedules-heading" className="text-base font-extrabold">Jadwal aktif</h2><span className="text-xs font-bold text-brand-deep">{activeSchedules.length}</span></div>
           <ScheduleList schedules={activeSchedules} onEdit={setEditing} onAction={openAction} />
         </section>}
         {pausedSchedules.length > 0 && <section aria-labelledby="paused-schedules-heading">
-          <div className="mb-3 flex items-center justify-between"><h2 id="paused-schedules-heading" className="text-sm font-bold text-[#676767]">Jadwal dijeda</h2><span className="text-xs font-bold text-[#676767]">{pausedSchedules.length}</span></div>
+          <div className="mb-3 flex items-center justify-between"><h2 id="paused-schedules-heading" className="text-sm font-bold text-muted">Jadwal dijeda</h2><span className="text-xs font-bold text-muted">{pausedSchedules.length}</span></div>
           <ScheduleList schedules={pausedSchedules} onEdit={setEditing} onAction={openAction} />
         </section>}
       </div>}
@@ -107,18 +107,26 @@ export function RecurringManager() {
     {pendingAction && <div ref={actionDialogRef} className="fixed inset-0 z-50 grid place-items-end bg-black/35 p-4 sm:place-items-center" role="dialog" aria-modal="true" aria-labelledby="schedule-action-title">
       <Card className="w-full max-w-lg shadow-2xl">
         <h2 id="schedule-action-title" className="text-xl font-extrabold">{pendingAction.kind === "delete" ? "Hapus jadwal ini?" : `${pendingAction.kind === "pause" ? "Jeda" : "Lanjutkan"} jadwal ini?`}</h2>
-        <p className="mt-2 text-sm text-[#676767]">{pendingAction.kind === "delete" ? "Jadwal yang dihapus tidak dapat dipulihkan." : "Pengaturan dapat diubah lagi kapan saja."}</p>
+        <p className="mt-2 text-sm text-muted">{pendingAction.kind === "delete" ? "Jadwal yang dihapus tidak dapat dipulihkan." : "Pengaturan dapat diubah lagi kapan saja."}</p>
         <div className="mt-5 grid gap-2 sm:grid-cols-2"><Button variant="secondary" onClick={() => setPendingAction(null)}>Batal</Button><Button onClick={confirmAction} disabled={busy}>{pendingAction.kind === "pause" ? "Konfirmasi jeda" : pendingAction.kind === "resume" ? "Konfirmasi lanjutkan" : "Konfirmasi hapus"}</Button></div>
       </Card>
     </div>}
-    {notice && <p role="status" className="text-sm font-semibold text-[#9e1d0e]">{notice}</p>}
+    {notice && <p role="status" className="text-sm font-semibold text-brand-deep">{notice}</p>}
   </section>;
 }
 
 function ScheduleList({ schedules, onEdit, onAction }: { schedules: RecurringSchedule[]; onEdit: (schedule: RecurringSchedule) => void; onAction: (action: Exclude<PendingAction, null>, trigger: HTMLButtonElement) => void }) {
   return <div className="grid gap-4">
-    {schedules.map((schedule) => <article className={`rounded-3xl border p-5 ${schedule.status === "ACTIVE" ? "border-[#f1c7a9] bg-[#fffaf6]" : "border-[#ededed]"}`} key={schedule.recurringId}>
-      <div className="flex items-start justify-between gap-4"><div><strong className="block text-lg">{schedule.recipientMasked}</strong><p className="mt-1 text-sm text-[#676767]">{schedule.corridor === "MY" ? "Malaysia" : "Hong Kong"} · {schedule.amountForeign} · tanggal {schedule.dayOfMonth}</p><p className="mt-2 text-xs font-semibold text-[#9e1d0e]">{schedule.status === "ACTIVE" ? "Aktif" : "Dijeda"} · Berikutnya {new Date(schedule.nextRunAt).toLocaleDateString("id-ID")}</p></div></div>
+    {schedules.map((schedule) => <article className={`rounded-3xl border p-5 ${schedule.status === "ACTIVE" ? "border-line bg-surface" : "border-line bg-canvas"}`} key={schedule.recurringId}>
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <strong className="block truncate text-lg">{schedule.recipientMasked}</strong>
+          <p className="mt-1 tabular-nums text-sm text-muted">{schedule.corridor === "MY" ? "Malaysia" : "Hong Kong"} · {schedule.amountForeign} · tiap tanggal {schedule.dayOfMonth}</p>
+          <p className="mt-2 text-xs font-semibold text-muted">Berikutnya {new Date(schedule.nextRunAt).toLocaleDateString("id-ID")}</p>
+        </div>
+        <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-bold ${schedule.status === "ACTIVE" ? "bg-success-wash text-success" : "bg-line text-muted"}`}>{schedule.status === "ACTIVE" ? "Aktif" : "Dijeda"}</span>
+      </div>
+      {schedule.dueNow && <p className="mt-3 rounded-xl bg-peach-wash px-3 py-2 text-xs font-semibold text-brand-deep">Siap dikirim bulan ini</p>}
       <div className="mt-4 grid gap-2 sm:grid-cols-3"><Button variant="secondary" onClick={() => onEdit({ ...schedule })}>Edit</Button><Button variant="secondary" onClick={(event) => onAction({ kind: schedule.status === "ACTIVE" ? "pause" : "resume", schedule }, event.currentTarget)}>{schedule.status === "ACTIVE" ? "Jeda jadwal" : "Lanjutkan"}</Button><Button variant="ghost" onClick={(event) => onAction({ kind: "delete", schedule }, event.currentTarget)}>Hapus</Button></div>
     </article>)}
   </div>;

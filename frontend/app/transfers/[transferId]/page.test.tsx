@@ -2,9 +2,13 @@ import { act, render, screen } from "@testing-library/react";
 import { getTransferDetail } from "@/lib/api";
 import TransferDetailPage from "./page";
 
-vi.mock("@/lib/api", () => ({ getTransferDetail: vi.fn() }));
+vi.mock("@/lib/api", () => ({ getTransferDetail: vi.fn(), getMe: vi.fn().mockResolvedValue({ senderId: "s1", name: "Test", phoneMasked: "+628•••00", hasPasskey: true, walletAddress: null }) }));
 
 describe("TransferDetailPage", () => {
+  beforeEach(() => {
+    window.localStorage.setItem("sangu.token", "test-token");
+  });
+
   it("shows the selected transfer and its backend event timeline", async () => {
     vi.mocked(getTransferDetail).mockResolvedValue({ transferId: "transfer-1", status: "PAID_OUT", amount: "500", corridor: "MY", amountIdr: "1750000", recipientMasked: "+62812••••", createdAt: "2026-07-13T09:00:00.000Z", events: [{ type: "CREATED", occurredAt: "2026-07-13T09:00:00.000Z" }, { type: "DEPOSITED", occurredAt: "2026-07-13T09:01:00.000Z" }, { type: "PAID_OUT", occurredAt: "2026-07-13T09:05:00.000Z" }] });
     await act(async () => { render(<TransferDetailPage params={Promise.resolve({ transferId: "transfer-1" })} />); });
