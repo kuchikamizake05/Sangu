@@ -3,10 +3,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { SendSuccess } from "./send-success";
 
 describe("SendSuccess", () => {
-  afterEach(() => vi.restoreAllMocks());
+  afterEach(() => {
+    vi.restoreAllMocks();
+    Object.defineProperty(navigator, "share", { configurable: true, value: undefined });
+  });
 
   it("copies the claim link when sharing is unavailable", async () => {
-    Object.assign(navigator, { share: undefined, clipboard: { writeText: vi.fn().mockResolvedValue(undefined) } });
+    Object.defineProperty(navigator, "share", { configurable: true, value: undefined });
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: vi.fn().mockResolvedValue(undefined) } });
     render(<SendSuccess amountLabel="RM 100" recipientPhone="+62812••••" claimUrl="https://sangu.test/claim/one" onBackHome={vi.fn()} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Bagikan link ke WhatsApp" }));
@@ -16,7 +20,7 @@ describe("SendSuccess", () => {
   });
 
   it("shows a useful notice when sharing is cancelled", async () => {
-    Object.assign(navigator, { share: vi.fn().mockRejectedValue(new Error("cancelled")) });
+    Object.defineProperty(navigator, "share", { configurable: true, value: vi.fn().mockRejectedValue(new Error("cancelled")) });
     render(<SendSuccess amountLabel="RM 100" recipientPhone="+62812••••" claimUrl="https://sangu.test/claim/one" onBackHome={vi.fn()} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Bagikan link ke WhatsApp" }));

@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Field, TextInput } from "@/components/ui/field";
 import { ApiError, getPasskeyLoginOptions, requestAuthOtp, verifyAuthOtp, type SenderProfile } from "@/lib/api";
 import { getLastPhone, setLastPhone, setSession, setWalletInfo } from "@/lib/auth-session";
-import { getPhoneCountry, normalizePhoneEntry, parsePhoneEntry, PHONE_COUNTRIES, type PhoneCountry } from "@/lib/phone-number";
+import { formatLocalPhone, getPhoneCountry, normalizePhoneEntry, parsePhoneEntry, PHONE_COUNTRIES, type PhoneCountry } from "@/lib/phone-number";
 import { isE164Phone } from "@/lib/send-flow";
 import { loginWithPasskey, registerPasskeyAndWallet } from "@/lib/passkey-wallet";
 
@@ -152,8 +152,11 @@ export default function LoginPage() {
       setPhone(parsed.localNumber);
       return;
     }
-    setPhone(value);
+    setPhone(value.replace(/\D/g, ""));
   }
+
+  const normalizedPhone = normalizePhoneEntry(country, phone);
+  const phoneIsValid = isE164Phone(normalizedPhone);
 
   return (
     <AppShell variant="bare">
@@ -167,17 +170,19 @@ export default function LoginPage() {
                 <p className="mt-2 text-sm text-muted">Pakai nomor HP-mu. Kalau perangkat ini sudah dikenali, cukup sidik jari saja.</p>
               </div>
               <Field label="Nomor HP" hint={country.iso === "OTHER" ? "Masukkan nomor lengkap dengan awalan +." : `Masukkan nomor lokal. Awalan 0 otomatis menjadi ${country.dialCode}.`}>
-                <div className="flex gap-2">
-                  <select aria-label="Kode negara" className="min-h-12 shrink-0 rounded-xl border border-line bg-white px-2 text-sm font-bold text-ink focus:border-brand focus:outline-none" value={country.iso} onChange={(event) => setCountry(getPhoneCountry(event.target.value))}>
-                    {PHONE_COUNTRIES.map((item) => <option key={item.iso} value={item.iso}>{item.flag} {item.label} {item.dialCode}</option>)}
+                <div className={`flex items-center gap-2 rounded-xl border bg-white px-2 transition ${phone.length > 0 && phoneIsValid ? "border-success" : "border-line"}`}>
+                  <select aria-label="Kode negara" className="h-12 w-24 shrink-0 appearance-auto border-0 bg-transparent px-0 text-sm font-bold text-ink focus:outline-none" value={country.iso} onChange={(event) => setCountry(getPhoneCountry(event.target.value))}>
+                    {PHONE_COUNTRIES.map((item) => <option key={item.iso} value={item.iso}>{item.flag} {item.dialCode || "Lain"}</option>)}
                   </select>
                   <TextInput
                     aria-label="Nomor HP"
                     inputMode="tel"
-                    placeholder={country.iso === "OTHER" ? "+55 11 99876 5432" : "Contoh: 0812 3456 7890"}
-                    value={phone}
+                    placeholder={country.iso === "OTHER" ? "+55 11 99876 5432" : "7921 - 734 - 22"}
+                    value={formatLocalPhone(phone)}
                     onChange={(event) => handlePhoneChange(event.target.value)}
+                    className="min-w-0 border-0 bg-transparent px-0 focus:outline-none"
                   />
+                  {phone.length > 0 && phoneIsValid && <span aria-label="Nomor HP valid" className="shrink-0 text-xl font-extrabold text-success">✓</span>}
                 </div>
               </Field>
               {error && <p className="text-sm font-semibold text-danger" role="alert">{error}</p>}

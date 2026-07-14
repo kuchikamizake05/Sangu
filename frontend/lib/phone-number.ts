@@ -38,6 +38,12 @@ export function normalizePhoneEntry(country: PhoneCountry, localNumber: string):
   return localDigits ? `${country.dialCode}${localDigits}` : country.dialCode;
 }
 
+export function formatLocalPhone(localNumber: string): string {
+  if (localNumber.startsWith("+")) return localNumber;
+  const digits = localNumber.replace(/\D/g, "");
+  return [digits.slice(0, 4), digits.slice(4, 7), digits.slice(7)].filter(Boolean).join(" - ");
+}
+
 export function parsePhoneEntry(value: string): { country: PhoneCountry; localNumber: string } {
   const compactValue = compact(value);
   if (!compactValue.startsWith("+")) return { country: getPhoneCountry("ID"), localNumber: compactValue.replace(/\D/g, "") };
