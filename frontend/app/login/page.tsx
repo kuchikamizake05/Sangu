@@ -308,6 +308,7 @@ function OtpInput({ value, onChange }: { value: string; onChange: (value: string
           ref={(element) => { refs.current[index] = element; }}
           inputMode="numeric"
           maxLength={6}
+          placeholder="0"
           value={digit}
           onChange={(event) => handleChange(index, event)}
           onKeyDown={(event) => handleKeyDown(index, event)}
