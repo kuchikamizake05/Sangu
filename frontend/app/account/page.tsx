@@ -69,7 +69,7 @@ function AccountContent() {
     <Card className="mt-5">
       <p className="text-sm font-bold">Keluar dari akun ini</p>
       <p className="mt-2 text-sm text-muted">Kamu bisa masuk lagi kapan saja dengan nomor HP-mu.</p>
-      <Button className="mt-5" variant="secondary" fullWidth onClick={logout}>Keluar</Button>
+      <Button className="mt-5 !bg-danger !text-white" variant="secondary" fullWidth onClick={logout}>Keluar</Button>
     </Card>
   </div>;
 }

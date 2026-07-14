@@ -1,1 +1,1 @@
-.badge { border-radius:var(--radius-button); display:inline-flex; font-size:.78rem; font-weight:700; padding:6px 12px; }.neutral { background:var(--peach); color:var(--orange-pressed); }.success { background:var(--success-wash); color:var(--success); }.danger { background:var(--danger-wash); color:var(--danger); }
+.badge { display:inline-flex; font-size:.7rem; font-weight:700; }.neutral { color:var(--orange-pressed); }.success { color:var(--success); }.danger { color:var(--danger); }

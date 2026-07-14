@@ -85,7 +85,7 @@ export function RecipientStep({
                 key={choice.value}
                 aria-pressed={selected}
                 onClick={() => onMethodChange(selected ? null : choice.value)}
-                className={`rounded-full border px-4 py-2 text-sm font-bold transition ${selected ? "border-brand bg-peach text-brand-deep" : "border-line text-ink hover:border-ink"}`}
+                className={`rounded-[14px] border px-4 py-2 text-sm font-bold transition ${selected ? "border-brand bg-peach text-brand-deep" : "border-line text-ink hover:border-ink"}`}
               >
                 {choice.label}
               </button>
