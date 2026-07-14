@@ -68,7 +68,8 @@ describe("LoginPage", () => {
 
     render(<LoginPage />);
 
-    fireEvent.change(screen.getByLabelText("Kode negara"), { target: { value: "MY" } });
+    fireEvent.click(screen.getByRole("button", { name: "Kode negara" }));
+    fireEvent.click(screen.getByRole("option", { name: "Malaysia +60" }));
     fireEvent.change(screen.getByLabelText("Nomor HP"), { target: { value: "012 345 6789" } });
     fireEvent.click(screen.getByRole("button", { name: "Lanjutkan" }));
 
@@ -80,14 +81,15 @@ describe("LoginPage", () => {
 
     fireEvent.change(screen.getByLabelText("Nomor HP"), { target: { value: "+852 1234 5678" } });
 
-    expect(screen.getByLabelText("Kode negara")).toHaveValue("HK");
+    expect(screen.getByRole("button", { name: "Kode negara" })).toHaveTextContent("+852");
     expect(screen.getByLabelText("Nomor HP")).toHaveValue("1234 - 567 - 8");
   });
 
   it("shows an inline validity check once the local number is complete", () => {
     render(<LoginPage />);
 
-    fireEvent.change(screen.getByLabelText("Kode negara"), { target: { value: "MY" } });
+    fireEvent.click(screen.getByRole("button", { name: "Kode negara" }));
+    fireEvent.click(screen.getByRole("option", { name: "Malaysia +60" }));
     fireEvent.change(screen.getByLabelText("Nomor HP"), { target: { value: "0123456789" } });
 
     expect(screen.getByLabelText("Nomor HP valid")).toBeInTheDocument();

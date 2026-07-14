@@ -1,5 +1,6 @@
 import type { Viewport } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
+import "flag-icons/css/flag-icons.min.css";
 import "./globals.css";
 
 const jakarta = Plus_Jakarta_Sans({

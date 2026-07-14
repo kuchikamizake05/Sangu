@@ -31,6 +31,7 @@ function messageFor(error: unknown, fallback: string): string {
 export default function LoginPage() {
   const [step, setStep] = useState<Step>("phone");
   const [country, setCountry] = useState<PhoneCountry>(getPhoneCountry("ID"));
+  const [countryOpen, setCountryOpen] = useState(false);
   const [phone, setPhone] = useState("");
   const [e164Phone, setE164Phone] = useState("");
   const [name, setName] = useState("");
@@ -169,11 +170,41 @@ export default function LoginPage() {
                 <h1 className="mt-2 text-3xl font-extrabold tracking-[-.05em]">Masuk ke Sangu</h1>
                 <p className="mt-2 text-sm text-muted">Pakai nomor HP-mu. Kalau perangkat ini sudah dikenali, cukup sidik jari saja.</p>
               </div>
-              <Field label="Nomor HP" hint={country.iso === "OTHER" ? "Masukkan nomor lengkap dengan awalan +." : `Masukkan nomor lokal. Awalan 0 otomatis menjadi ${country.dialCode}.`}>
-                <div className={`flex items-center gap-2 rounded-xl border bg-white px-2 transition ${phone.length > 0 && phoneIsValid ? "border-success" : "border-line"}`}>
-                  <select aria-label="Kode negara" className="h-12 w-24 shrink-0 appearance-auto border-0 bg-transparent px-0 text-sm font-bold text-ink focus:outline-none" value={country.iso} onChange={(event) => setCountry(getPhoneCountry(event.target.value))}>
-                    {PHONE_COUNTRIES.map((item) => <option key={item.iso} value={item.iso}>{item.flag} {item.dialCode || "Lain"}</option>)}
-                  </select>
+              <Field label="Nomor HP">
+                <div className={`relative flex items-center gap-2 rounded-xl border bg-white px-2 transition ${phone.length > 0 && phoneIsValid ? "border-success" : "border-line"}`}>
+                  <button
+                    type="button"
+                    aria-label="Kode negara"
+                    aria-haspopup="listbox"
+                    aria-expanded={countryOpen}
+                    onClick={() => setCountryOpen((open) => !open)}
+                    className="flex h-12 shrink-0 items-center gap-1.5 rounded-lg px-1 text-sm font-bold text-ink outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                  >
+                    {country.flagCode ? <span aria-hidden="true" className={`fi fi-${country.flagCode} fis rounded-[1px] text-xl leading-none`} /> : <span aria-hidden="true">Lain</span>}
+                    <span>{country.dialCode || ""}</span>
+                    <svg aria-hidden="true" viewBox="0 0 16 16" className="size-4 text-muted" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="m3.5 6 4.5 4.5L12.5 6" />
+                    </svg>
+                  </button>
+                  {countryOpen && (
+                    <div role="listbox" aria-label="Pilih negara" className="absolute left-0 top-[calc(100%+0.5rem)] z-20 grid w-64 max-h-72 gap-0.5 overflow-y-auto rounded-xl border border-line bg-white p-1.5 shadow-lg">
+                      {PHONE_COUNTRIES.map((item) => (
+                        <button
+                          key={item.iso}
+                          type="button"
+                          role="option"
+                          aria-selected={item.iso === country.iso}
+                          aria-label={`${item.label} ${item.dialCode || ""}`.trim()}
+                          onClick={() => { setCountry(item); setCountryOpen(false); }}
+                          className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition hover:bg-surface ${item.iso === country.iso ? "bg-surface font-bold" : ""}`}
+                        >
+                          {item.flagCode ? <span aria-hidden="true" className={`fi fi-${item.flagCode} fis rounded-[1px] text-xl leading-none`} /> : <span aria-hidden="true" className="w-5 text-center">•</span>}
+                          <span className="flex-1">{item.label}</span>
+                          <span className="font-bold text-muted">{item.dialCode || "Lain"}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                   <TextInput
                     aria-label="Nomor HP"
                     inputMode="tel"

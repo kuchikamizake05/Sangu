@@ -2,22 +2,22 @@ export type PhoneCountry = {
   iso: string;
   label: string;
   dialCode: string;
-  flag: string;
+  flagCode?: string;
 };
 
 export const PHONE_COUNTRIES: PhoneCountry[] = [
-  { iso: "ID", label: "Indonesia", dialCode: "+62", flag: "🇮🇩" },
-  { iso: "MY", label: "Malaysia", dialCode: "+60", flag: "🇲🇾" },
-  { iso: "HK", label: "Hong Kong", dialCode: "+852", flag: "🇭🇰" },
-  { iso: "TW", label: "Taiwan", dialCode: "+886", flag: "🇹🇼" },
-  { iso: "SA", label: "Arab Saudi", dialCode: "+966", flag: "🇸🇦" },
-  { iso: "SG", label: "Singapura", dialCode: "+65", flag: "🇸🇬" },
-  { iso: "AE", label: "Uni Emirat Arab", dialCode: "+971", flag: "🇦🇪" },
-  { iso: "KR", label: "Korea Selatan", dialCode: "+82", flag: "🇰🇷" },
-  { iso: "JP", label: "Jepang", dialCode: "+81", flag: "🇯🇵" },
-  { iso: "BN", label: "Brunei", dialCode: "+673", flag: "🇧🇳" },
-  { iso: "TH", label: "Thailand", dialCode: "+66", flag: "🇹🇭" },
-  { iso: "OTHER", label: "Negara lain", dialCode: "", flag: "🌐" },
+  { iso: "ID", label: "Indonesia", dialCode: "+62", flagCode: "id" },
+  { iso: "MY", label: "Malaysia", dialCode: "+60", flagCode: "my" },
+  { iso: "HK", label: "Hong Kong", dialCode: "+852", flagCode: "hk" },
+  { iso: "TW", label: "Taiwan", dialCode: "+886", flagCode: "tw" },
+  { iso: "SA", label: "Arab Saudi", dialCode: "+966", flagCode: "sa" },
+  { iso: "SG", label: "Singapura", dialCode: "+65", flagCode: "sg" },
+  { iso: "AE", label: "Uni Emirat Arab", dialCode: "+971", flagCode: "ae" },
+  { iso: "KR", label: "Korea Selatan", dialCode: "+82", flagCode: "kr" },
+  { iso: "JP", label: "Jepang", dialCode: "+81", flagCode: "jp" },
+  { iso: "BN", label: "Brunei", dialCode: "+673", flagCode: "bn" },
+  { iso: "TH", label: "Thailand", dialCode: "+66", flagCode: "th" },
+  { iso: "OTHER", label: "Negara lain", dialCode: "" },
 ];
 
 export function getPhoneCountry(iso: string): PhoneCountry {
