@@ -22,6 +22,71 @@ function BaseIcon({ children, ...props }: IconProps & { children: ReactNode }) {
   );
 }
 
+export function EyeIcon(props: IconProps) {
+  return (
+    <BaseIcon {...props}>
+      <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" />
+      <circle cx="12" cy="12" r="3" />
+    </BaseIcon>
+  );
+}
+
+export function EyeOffIcon(props: IconProps) {
+  return (
+    <BaseIcon {...props}>
+      <path d="M4.5 8.5C3.2 9.9 2.5 12 2.5 12S6 18.5 12 18.5c1.3 0 2.5-.3 3.6-.8" />
+      <path d="M9 5.9c.9-.3 1.9-.4 3-.4 6 0 9.5 6.5 9.5 6.5s-.8 1.5-2.3 3" />
+      <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+      <path d="m4 4 16 16" />
+    </BaseIcon>
+  );
+}
+
+export function ChevronDownIcon(props: IconProps) {
+  return (
+    <BaseIcon {...props}>
+      <path d="m6 9 6 6 6-6" />
+    </BaseIcon>
+  );
+}
+
+export function PencilIcon(props: IconProps) {
+  return (
+    <BaseIcon {...props}>
+      <path d="M4 20h4L19.5 8.5a2.1 2.1 0 0 0-3-3L5 17v3Z" />
+      <path d="m13.5 6.5 3 3" />
+    </BaseIcon>
+  );
+}
+
+export function PauseIcon(props: IconProps) {
+  return (
+    <BaseIcon {...props}>
+      <path d="M9 5v14" />
+      <path d="M15 5v14" />
+    </BaseIcon>
+  );
+}
+
+export function PlayIcon(props: IconProps) {
+  return (
+    <BaseIcon {...props}>
+      <path d="M7 5v14l12-7L7 5Z" />
+    </BaseIcon>
+  );
+}
+
+export function TrashIcon(props: IconProps) {
+  return (
+    <BaseIcon {...props}>
+      <path d="M4 7h16" />
+      <path d="M9 7V4h6v3" />
+      <path d="M6 7l1 13h10l1-13" />
+      <path d="M10 11v5M14 11v5" />
+    </BaseIcon>
+  );
+}
+
 export function HomeIcon(props: IconProps) {
   return (
     <BaseIcon {...props}>

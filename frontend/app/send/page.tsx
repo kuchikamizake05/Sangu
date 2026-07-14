@@ -7,7 +7,7 @@ import { AmountScreen } from "@/components/sender/amount-screen";
 import { RecipientStep } from "@/components/sender/recipient-step";
 import { SendSuccess } from "@/components/sender/send-success";
 import { TransactionConfirmation } from "@/components/sender/transaction-confirmation";
-import { markRecurringSent, prepareSend, type Corridor, type PayoutMethod, type PrepareSendResponse } from "@/lib/api";
+import { ApiError, markRecurringSent, prepareSend, type Corridor, type PayoutMethod, type PrepareSendResponse } from "@/lib/api";
 import { formatForeignAmount, isE164Phone, appendDigit } from "@/lib/send-flow";
 import { useQuote } from "@/lib/use-quote";
 import type { NumpadKey } from "@/components/sender/numpad";
@@ -27,6 +27,7 @@ export default function SendPage() {
   const [prepared, setPrepared] = useState<PrepareSendResponse | null>(null);
   const [prepareBusy, setPrepareBusy] = useState(false);
   const [prepareError, setPrepareError] = useState<string | null>(null);
+  const [prepareErrorCode, setPrepareErrorCode] = useState<string | null>(null);
   const [claimUrl, setClaimUrl] = useState<string | null>(null);
 
   const { quote, loading: quoteLoading, error: quoteError } = useQuote(corridor, amount);
@@ -54,11 +55,13 @@ export default function SendPage() {
   async function runPrepare() {
     setPrepareBusy(true);
     setPrepareError(null);
+    setPrepareErrorCode(null);
     try {
       const response = await prepareSend({ corridor, amountForeign: amount, recipientPhone: phone, methodHint: methodHint ?? undefined });
       setPrepared(response);
     } catch (error) {
       setPrepareError(error instanceof Error ? error.message : "Transfer belum dapat disiapkan. Coba beberapa saat lagi.");
+      setPrepareErrorCode(error instanceof ApiError ? error.code ?? null : null);
     } finally {
       setPrepareBusy(false);
     }
@@ -75,7 +78,7 @@ export default function SendPage() {
       return;
     }
     if (step === "amount") setStep("recipient");
-    else if (step === "confirm") { setStep("amount"); setPrepared(null); setPrepareError(null); }
+    else if (step === "confirm") { setStep("amount"); setPrepared(null); setPrepareError(null); setPrepareErrorCode(null); }
   }
 
   function handleConfirmed(url: string) {
@@ -127,6 +130,7 @@ export default function SendPage() {
               prepared={prepared}
               prepareBusy={prepareBusy}
               prepareError={prepareError}
+              prepareErrorCode={prepareErrorCode}
               onRetry={runPrepare}
               onDone={handleConfirmed}
             />
@@ -138,6 +142,8 @@ export default function SendPage() {
               recipientPhone={phone}
               claimUrl={claimUrl}
               onBackHome={() => window.location.assign("/app")}
+              corridor={recurringId ? undefined : corridor}
+              amountForeign={recurringId ? undefined : amount}
             />
           )}
         </div>
@@ -168,6 +174,7 @@ function ConfirmStep({
   prepared,
   prepareBusy,
   prepareError,
+  prepareErrorCode,
   onRetry,
   onDone,
 }: {
@@ -177,9 +184,11 @@ function ConfirmStep({
   prepared: PrepareSendResponse | null;
   prepareBusy: boolean;
   prepareError: string | null;
+  prepareErrorCode: string | null;
   onRetry: () => void;
   onDone: (claimUrl: string) => void;
 }) {
+  const insufficientBalance = prepareErrorCode === "INSUFFICIENT_BALANCE";
   return (
     <div className="flex flex-1 flex-col justify-end">
       <div className="rounded-t-[30px] bg-surface p-6 shadow-[0_-8px_30px_rgba(0,0,0,0.06)]">
@@ -197,7 +206,11 @@ function ConfirmStep({
         {prepareError && (
           <div className="mt-6 flex items-center justify-between gap-3 rounded-2xl bg-danger-wash p-3 text-sm font-semibold text-danger" role="alert">
             <span>{prepareError}</span>
-            <button type="button" className="shrink-0 font-extrabold underline" onClick={onRetry}>Coba lagi</button>
+            {insufficientBalance ? (
+              <a className="shrink-0 font-extrabold underline" href="/app">Isi saldo</a>
+            ) : (
+              <button type="button" className="shrink-0 font-extrabold underline" onClick={onRetry}>Coba lagi</button>
+            )}
           </div>
         )}
         {prepared && !prepareError && (

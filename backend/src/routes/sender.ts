@@ -14,10 +14,11 @@
 // ter-scope ke senderId dari sesi — lihat docs/auth-pengirim-pembagian-kerja-fe-be.md.
 import crypto from "node:crypto";
 import type { FastifyInstance } from "fastify";
-import { getQuote } from "../lib/fx.js";
+import { getQuote, usdcStroopsToForeign } from "../lib/fx.js";
 import {
   newSecret,
   recipientCommitment,
+  getUsdcBalanceStroops,
   isOnchainEnabled,
   prepareDeposit,
   submitDeposit,
@@ -70,9 +71,9 @@ export default async function senderRoutes(app: FastifyInstance) {
 
   app.get("/api/quote", async (req, reply) => {
     const { corridor, amountForeign } = req.query as { corridor: Corridor; amountForeign: string };
-    if (corridor !== "MY" && corridor !== "HK") return badRequest(reply, "corridor harus MY|HK");
+    if (corridor !== "MY" && corridor !== "HK") return badRequest(reply, "Pilih negara asal kiriman: Malaysia atau Hong Kong.");
     const amt = Number(amountForeign);
-    if (!Number.isFinite(amt) || amt <= 0) return badRequest(reply, "amountForeign tidak valid");
+    if (!Number.isFinite(amt) || amt <= 0) return badRequest(reply, "Jumlah kiriman tidak valid.");
     return getQuote(corridor, amt);
   });
 
@@ -80,11 +81,11 @@ export default async function senderRoutes(app: FastifyInstance) {
   app.post("/api/send/prepare", authed, async (req, reply): Promise<unknown> => {
     const body = req.body as PrepareSendRequest;
     if (body.corridor !== "MY" && body.corridor !== "HK")
-      return badRequest(reply, "corridor harus MY|HK");
+      return badRequest(reply, "Pilih negara asal kiriman: Malaysia atau Hong Kong.");
     const amt = Number(body.amountForeign);
-    if (!Number.isFinite(amt) || amt <= 0) return badRequest(reply, "amountForeign tidak valid");
+    if (!Number.isFinite(amt) || amt <= 0) return badRequest(reply, "Jumlah kiriman tidak valid.");
     if (!E164.test(body.recipientPhone ?? ""))
-      return badRequest(reply, "recipientPhone harus format E.164 (+62...)");
+      return badRequest(reply, "Nomor penerima harus diawali kode negara, contoh +62…");
 
     const quote = await getQuote(body.corridor, amt);
     const expiry = Math.floor(Date.now() / 1000) + EXPIRY_SECONDS;
@@ -102,13 +103,42 @@ export default async function senderRoutes(app: FastifyInstance) {
     // XDR nyata hanya bila on-chain terkonfigurasi DAN sender sudah punya smart wallet.
     let unsignedXDR = "DEMO_UNSIGNED_XDR"; // penanda demo-mode — frontend boleh skip sign
     if (isOnchainEnabled() && walletAddress) {
-      ({ unsignedXDR } = await prepareDeposit({
-        senderAddress: walletAddress,
-        amount: quote.usdcStroops,
-        hashlock,
-        recipientCommitment: commitment,
-        expiry,
-      }));
+      // Cek saldo dulu supaya pengguna dapat pesan yang jelas (bukan error simulasi mentah).
+      const currencyLabel = body.corridor === "HK" ? "HK$" : "RM";
+      try {
+        const balanceStroops = await getUsdcBalanceStroops(walletAddress);
+        if (balanceStroops < BigInt(quote.usdcStroops)) {
+          const balanceForeign = await usdcStroopsToForeign(body.corridor, balanceStroops);
+          reply.code(400);
+          return {
+            error: {
+              code: "INSUFFICIENT_BALANCE",
+              message: `Saldo kamu ${currencyLabel} ${balanceForeign}, belum cukup untuk kiriman ${currencyLabel} ${amt.toFixed(2)}. Isi saldo dulu di Beranda, ya.`,
+            },
+          };
+        }
+      } catch (err) {
+        req.log.warn({ err }, "cek saldo sebelum prepare gagal — lanjut ke simulasi");
+      }
+
+      try {
+        ({ unsignedXDR } = await prepareDeposit({
+          senderAddress: walletAddress,
+          amount: quote.usdcStroops,
+          hashlock,
+          recipientCommitment: commitment,
+          expiry,
+        }));
+      } catch (err) {
+        req.log.error({ err }, "prepare deposit gagal");
+        const insufficient = err instanceof Error && err.message.includes("balance is not sufficient");
+        reply.code(insufficient ? 400 : 502);
+        return {
+          error: insufficient
+            ? { code: "INSUFFICIENT_BALANCE", message: "Saldo kamu belum cukup untuk kiriman ini. Isi saldo dulu di Beranda, ya." }
+            : { code: "PREPARE_FAILED", message: "Transfer belum dapat disiapkan karena gangguan jaringan. Coba beberapa saat lagi." },
+        };
+      }
     }
 
     // secret & phone disimpan DB — TIDAK pernah dikirim ke frontend.
@@ -148,14 +178,22 @@ export default async function senderRoutes(app: FastifyInstance) {
     const transfer = await getTransferById(body.transferId);
     if (!transfer || transfer.senderId !== req.user.senderId) {
       reply.code(404);
-      return { error: { code: "NOT_FOUND", message: "transfer tidak ditemukan" } };
+      return { error: { code: "NOT_FOUND", message: "Transfer tidak ditemukan." } };
     }
-    if (transfer.escrowId) return badRequest(reply, "transfer sudah di-submit");
+    if (transfer.escrowId) return badRequest(reply, "Transfer ini sudah diproses.");
 
     let escrowId: string;
     let depositTxHash: string | null = null;
     if (isOnchainEnabled() && body.signedXDR && body.signedXDR !== "DEMO_UNSIGNED_XDR") {
-      ({ escrowId, txHash: depositTxHash } = await submitDeposit(body.signedXDR));
+      try {
+        ({ escrowId, txHash: depositTxHash } = await submitDeposit(body.signedXDR));
+      } catch (err) {
+        req.log.error({ err }, "submit deposit gagal");
+        reply.code(502);
+        return {
+          error: { code: "SUBMIT_FAILED", message: "Kiriman belum berhasil diproses karena gangguan jaringan. Uangmu tidak terpotong — coba lagi." },
+        };
+      }
     } else {
       // demo-mode: escrow on-chain disimulasikan
       escrowId = "SIM-" + crypto.randomBytes(4).toString("hex");
@@ -194,12 +232,12 @@ export default async function senderRoutes(app: FastifyInstance) {
       dayOfMonth: number;
     };
     if (body.corridor !== "MY" && body.corridor !== "HK")
-      return badRequest(reply, "corridor harus MY|HK");
+      return badRequest(reply, "Pilih negara asal kiriman: Malaysia atau Hong Kong.");
     if (!E164.test(body.recipientPhone ?? ""))
-      return badRequest(reply, "recipientPhone harus format E.164");
+      return badRequest(reply, "Nomor penerima harus diawali kode negara, contoh +62…");
     const day = Number(body.dayOfMonth);
     if (!Number.isInteger(day) || day < 1 || day > 28)
-      return badRequest(reply, "dayOfMonth harus 1..28");
+      return badRequest(reply, "Tanggal harus antara 1 sampai 28.");
 
     const recurringId = crypto.randomUUID();
     await createRecurring({
@@ -237,7 +275,7 @@ export default async function senderRoutes(app: FastifyInstance) {
   app.post("/api/recurring/:recurringId/sent", authed, async (req, reply) => {
     const { recurringId } = req.params as { recurringId: string };
     const existing = await getRecurringById(recurringId);
-    if (!existing || existing.senderId !== req.user.senderId) { reply.code(404); return { error: { code: "NOT_FOUND", message: "jadwal tidak ditemukan" } }; }
+    if (!existing || existing.senderId !== req.user.senderId) { reply.code(404); return { error: { code: "NOT_FOUND", message: "Jadwal tidak ditemukan." } }; }
     await markRecurringSent(recurringId, Math.floor(Date.now() / 1000));
     return { recurringId, dueNow: false };
   });
@@ -245,7 +283,7 @@ export default async function senderRoutes(app: FastifyInstance) {
   app.get("/api/transfers/:transferId", authed, async (req, reply) => {
     const { transferId } = req.params as { transferId: string };
     const transfer = await getTransferById(transferId);
-    if (!transfer || transfer.senderId !== req.user.senderId) { reply.code(404); return { error: { code: "NOT_FOUND", message: "transfer tidak ditemukan" } }; }
+    if (!transfer || transfer.senderId !== req.user.senderId) { reply.code(404); return { error: { code: "NOT_FOUND", message: "Transfer tidak ditemukan." } }; }
     return {
       transferId: transfer.transferId,
       status: transfer.status,
@@ -267,26 +305,26 @@ export default async function senderRoutes(app: FastifyInstance) {
   app.patch("/api/recurring/:recurringId", authed, async (req, reply) => {
     const { recurringId } = req.params as { recurringId: string };
     const existing = await getRecurringById(recurringId);
-    if (!existing || existing.senderId !== req.user.senderId) { reply.code(404); return { error: { code: "NOT_FOUND", message: "jadwal tidak ditemukan" } }; }
+    if (!existing || existing.senderId !== req.user.senderId) { reply.code(404); return { error: { code: "NOT_FOUND", message: "Jadwal tidak ditemukan." } }; }
     const body = req.body as Partial<{ recipientPhone: string; corridor: Corridor; amountForeign: string; dayOfMonth: number }>;
     const patch: Partial<{ recipientPhone: string; corridor: Corridor; amountForeign: string; dayOfMonth: number }> = {};
     if (body.recipientPhone !== undefined) {
-      if (!E164.test(body.recipientPhone)) return badRequest(reply, "recipientPhone harus format E.164");
+      if (!E164.test(body.recipientPhone)) return badRequest(reply, "Nomor penerima harus diawali kode negara, contoh +62…");
       patch.recipientPhone = body.recipientPhone;
     }
     if (body.corridor !== undefined) {
-      if (body.corridor !== "MY" && body.corridor !== "HK") return badRequest(reply, "corridor harus MY|HK");
+      if (body.corridor !== "MY" && body.corridor !== "HK") return badRequest(reply, "Pilih negara asal kiriman: Malaysia atau Hong Kong.");
       patch.corridor = body.corridor;
     }
     if (body.amountForeign !== undefined) {
-      if (!Number.isFinite(Number(body.amountForeign)) || Number(body.amountForeign) <= 0) return badRequest(reply, "amountForeign tidak valid");
+      if (!Number.isFinite(Number(body.amountForeign)) || Number(body.amountForeign) <= 0) return badRequest(reply, "Jumlah kiriman tidak valid.");
       patch.amountForeign = body.amountForeign;
     }
     if (body.dayOfMonth !== undefined) {
-      if (!Number.isInteger(body.dayOfMonth) || body.dayOfMonth < 1 || body.dayOfMonth > 28) return badRequest(reply, "dayOfMonth harus 1..28");
+      if (!Number.isInteger(body.dayOfMonth) || body.dayOfMonth < 1 || body.dayOfMonth > 28) return badRequest(reply, "Tanggal harus antara 1 sampai 28.");
       patch.dayOfMonth = body.dayOfMonth;
     }
-    if (Object.keys(patch).length === 0) return badRequest(reply, "tidak ada perubahan yang valid");
+    if (Object.keys(patch).length === 0) return badRequest(reply, "Tidak ada perubahan untuk disimpan.");
     await updateRecurring(recurringId, patch);
     const updated = { ...existing, ...patch };
     return { recurringId, recipientMasked: maskPhone(updated.recipientPhone), corridor: updated.corridor, amountForeign: updated.amountForeign, dayOfMonth: updated.dayOfMonth, status: updated.status, nextRunAt: nextRunAt(updated.dayOfMonth) };
@@ -296,7 +334,7 @@ export default async function senderRoutes(app: FastifyInstance) {
     app.post(`/api/recurring/:recurringId/${action}`, authed, async (req, reply) => {
       const { recurringId } = req.params as { recurringId: string };
       const existing = await getRecurringById(recurringId);
-      if (!existing || existing.senderId !== req.user.senderId) { reply.code(404); return { error: { code: "NOT_FOUND", message: "jadwal tidak ditemukan" } }; }
+      if (!existing || existing.senderId !== req.user.senderId) { reply.code(404); return { error: { code: "NOT_FOUND", message: "Jadwal tidak ditemukan." } }; }
       const status = action === "pause" ? "PAUSED" : "ACTIVE";
       await updateRecurring(recurringId, { status });
       return { recurringId, status };
@@ -306,7 +344,7 @@ export default async function senderRoutes(app: FastifyInstance) {
   app.delete("/api/recurring/:recurringId", authed, async (req, reply) => {
     const { recurringId } = req.params as { recurringId: string };
     const existing = await getRecurringById(recurringId);
-    if (!existing || existing.senderId !== req.user.senderId) { reply.code(404); return { error: { code: "NOT_FOUND", message: "jadwal tidak ditemukan" } }; }
+    if (!existing || existing.senderId !== req.user.senderId) { reply.code(404); return { error: { code: "NOT_FOUND", message: "Jadwal tidak ditemukan." } }; }
     await deleteRecurring(recurringId);
     reply.code(204);
   });

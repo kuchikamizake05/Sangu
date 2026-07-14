@@ -275,20 +275,22 @@ export async function getMe(): Promise<SenderProfile & { walletAddress: string |
 
 // ── Saldo demo (wallet) ──
 
+export type BalanceCurrency = "USD" | "MYR" | "HKD";
+
 export interface WalletBalance {
-  currency: "MYR" | "HKD";
+  currency: BalanceCurrency;
   amount: string;
   idrEstimate: string;
   source: "onchain" | "demo";
 }
 
-export async function getWalletBalance(): Promise<WalletBalance> {
-  const res = await authFetch("/api/wallet/balance");
+export async function getWalletBalance(currency: BalanceCurrency = "USD"): Promise<WalletBalance> {
+  const res = await authFetch(`/api/wallet/balance?currency=${currency}`);
   return parseOrThrow(res, "Saldo belum dapat dimuat.");
 }
 
-export async function topupWallet(amountForeign: string): Promise<WalletBalance> {
-  const res = await authFetch("/api/wallet/topup", { method: "POST", body: JSON.stringify({ amountForeign }) });
+export async function topupWallet(amountForeign: string, currency: BalanceCurrency = "USD"): Promise<WalletBalance> {
+  const res = await authFetch("/api/wallet/topup", { method: "POST", body: JSON.stringify({ amountForeign, currency }) });
   return parseOrThrow(res, "Top up belum dapat diproses.");
 }
 

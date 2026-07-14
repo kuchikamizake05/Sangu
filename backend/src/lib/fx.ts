@@ -19,6 +19,22 @@ export async function foreignToUsdRate(corridor: Corridor): Promise<number> {
   return usdRate;
 }
 
+/** Kurs USD → mata uang tampilan saldo + IDR (sekali fetch). */
+export async function ratesFromUsd(): Promise<{ MYR: number; HKD: number; IDR: number }> {
+  const res = await fetch(`${FX_API}/USD`);
+  const data = (await res.json()) as { rates?: Record<string, number> };
+  const { MYR, HKD, IDR } = data.rates ?? {};
+  if (!MYR || !HKD || !IDR) throw new Error("FX rate USD tidak tersedia");
+  return { MYR, HKD, IDR };
+}
+
+/** Konversi stroops USDC (7 desimal) → nominal mata uang koridor (string 2 desimal). */
+export async function usdcStroopsToForeign(corridor: Corridor, stroops: bigint): Promise<string> {
+  const usd = Number(stroops) / 1e7;
+  const rate = await foreignToUsdRate(corridor); // 1 foreign = rate USD
+  return (usd / rate).toFixed(2);
+}
+
 export async function getQuote(corridor: Corridor, amountForeign: number) {
   const cur = CURRENCY[corridor];
   const res = await fetch(`${FX_API}/${cur}`);

@@ -55,7 +55,7 @@ export interface SubmitSendResponse {
 // dikredit via /api/wallet/topup (mock on-ramp). Mode on-chain: TODO baca saldo USDC nyata
 // dari smart wallet via helper baca-saldo di stellar/ bila sudah tersedia.
 export interface WalletBalanceResponse {
-  currency: "MYR" | "HKD";
+  currency: "USD" | "MYR" | "HKD";
   amount: string; // saldo dalam `currency`, string desimal (mis. "1840.00")
   idrEstimate: string; // estimasi rupiah, string bulat
   source: "onchain" | "demo";
