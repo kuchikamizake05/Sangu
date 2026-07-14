@@ -94,6 +94,13 @@ const pool = new pg.Pool({
   max: 5,
 });
 
+// Klien idle di pool bisa error (koneksi diputus pooler, TLS reset, dsb.). Tanpa handler
+// ini, event 'error' tak tertangani MEMATIKAN seluruh proses Node — cukup log; pool akan
+// membuang klien rusak dan membuat koneksi baru pada query berikutnya.
+pool.on("error", (err) => {
+  console.error("[db] koneksi idle pool error (diabaikan, pool akan reconnect):", err.message);
+});
+
 // Skema dibuat idempoten saat startup. Kolom camelCase dikutip agar identik
 // dengan nama field TypeScript (tanpa lapisan mapping).
 const SCHEMA_SQL = `
