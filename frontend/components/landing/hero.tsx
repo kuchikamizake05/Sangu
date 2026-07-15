@@ -28,6 +28,10 @@ const CARDS: StripCard[] = [
 
 const REPEAT = 4;
 const STEP_MS = 3400;
+// Harus >= durasi transition .stripTrack/.stripCard di landing.module.css: lompat balik
+// hanya aman setelah transisi selesai, supaya posisi track & lebar kartu sudah settle dan
+// snap ke copy sebelumnya jadi pixel-identical (tak terlihat).
+const TRANSITION_MS = 1200;
 
 function StripCardView({ card, wide }: { card: StripCard; wide: boolean }) {
   const t = useT();
@@ -53,7 +57,7 @@ function HeroStrip() {
       setAnimate(false);
       setIndex((i) => i - CARDS.length);
       requestAnimationFrame(() => requestAnimationFrame(() => setAnimate(true)));
-    }, 750);
+    }, TRANSITION_MS + 50);
     return () => clearTimeout(id);
   }, [index]);
 

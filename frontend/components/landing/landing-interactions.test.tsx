@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Hero } from "./hero";
 import { RateSection } from "./rate-section";
@@ -54,6 +54,63 @@ describe("Hero", () => {
     expect(screen.getByRole("link", { name: "Buka akun gratis" })).toHaveAttribute("href", "/app");
     expect(screen.getByRole("link", { name: "Lihat kursnya" })).toHaveAttribute("href", "#kurs");
     expect(screen.getByText(/Sangu pulang untuk/i)).toBeInTheDocument();
+  });
+});
+
+describe("HeroStrip", () => {
+  const CARD_COUNT = 8;
+  const RENDERED_CARDS = 32; // CARDS.length * REPEAT
+  const STEP_MS = 3400;
+
+  // Index kartu lebar dibaca dari transform track — satu-satunya state loop yang terlihat di DOM.
+  function stripIndex(container: HTMLElement): number {
+    const track = container.querySelector<HTMLElement>("[style*='--strip-step']");
+    const match = track?.style.transform.match(/\((\d+) \* var\(--strip-step\)\)/);
+    if (!match) throw new Error(`transform track tidak terbaca: ${track?.style.transform}`);
+    return Number(match[1]);
+  }
+
+  beforeEach(() => {
+    vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: false })));
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it("keeps looping past the end of the card list instead of scrolling into empty space", () => {
+    const { container } = render(<Hero />);
+    const wideCards = new Set<number>();
+
+    // Cukup untuk melewati beberapa kali titik lompat balik (reset tiap 8 langkah).
+    for (let step = 0; step < 30; step += 1) {
+      act(() => { vi.advanceTimersByTime(STEP_MS); });
+      const index = stripIndex(container);
+      expect(index).toBeGreaterThanOrEqual(0);
+      expect(index).toBeLessThan(RENDERED_CARDS);
+      wideCards.add(index % CARD_COUNT);
+    }
+
+    // Tiap kartu tetap dapat giliran jadi kartu lebar — loop berjalan, bukan mentok di satu posisi.
+    expect(wideCards.size).toBe(CARD_COUNT);
+  });
+
+  it("holds the jump back until the transition finished so the loop stays invisible", () => {
+    const { container } = render(<Hero />);
+
+    // Maju sampai tepat di titik reset (index 24 = CARDS.length * (REPEAT - 1)).
+    for (let step = 0; step < 16; step += 1) act(() => { vi.advanceTimersByTime(STEP_MS); });
+    expect(stripIndex(container)).toBe(24);
+
+    // Selama transisi 1.2s berjalan, track belum boleh melompat.
+    act(() => { vi.advanceTimersByTime(1000); });
+    expect(stripIndex(container)).toBe(24);
+
+    // Setelah transisi selesai, lompat balik satu copy ke posisi yang identik secara visual.
+    act(() => { vi.advanceTimersByTime(400); });
+    expect(stripIndex(container)).toBe(16);
   });
 });
 
