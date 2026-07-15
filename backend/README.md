@@ -1,6 +1,6 @@
 # backend/ — REST API + Relayer + Anchor bridge (Node/TS)
 
-Owner: tim **Backend**. Interface = `docs/spesifikasi-teknis-pembagian-kerja.md` §2.3.
+Owner: tim **Backend**.
 
 ## Jalankan
 ```bash
@@ -19,7 +19,7 @@ npm run dev               # http://localhost:4000  (GET /health)
 | `/otp/*`, `/transfers`, `/recurring` | 🟡 stub | sambungkan OTP + DB |
 | relayer / keeper refund | ⬜ TODO | fee-bump + scheduler |
 
-## Tugas utama (spec §4)
+## Tugas utama
 1. REST API lengkap + DB (mapping token↔escrow, secret, status, riwayat, jadwal).
 2. Relayer: susun & fee-bump tx `deposit`/`claim`/`refund`, baca event.
 3. OTP flow (Twilio Verify / mock) + lookup nomor via **HMAC commitment** (bukan sha256 tebakan).
@@ -27,7 +27,6 @@ npm run dev               # http://localhost:4000  (GET /health)
 5. Scheduler Sangu Bulanan + keeper `refund` saat expiry.
 
 ## Auth pengirim (`/api/auth/*`)
-Kontrak & pembagian kerja: `docs/auth-pengirim-pembagian-kerja-fe-be.md`.
 OTP hanya untuk daftar/recovery; login harian via passkey (WebAuthn). Semua route
 sender (kecuali `GET /api/quote`) butuh `Authorization: Bearer <JWT>` dan ter-scope
 ke `senderId`. Mode dev/demo: `OTP_PROVIDER=mock` → kode OTP selalu `000000`.
@@ -46,4 +45,4 @@ Env tambahan (semua punya default dev — WAJIB diisi untuk produksi):
 - **secret** dibuat & disimpan backend (`src/stellar/escrow.ts#newSecret`), **tidak** di URL.
 - Link claim hanya membawa **token opaque**.
 - `payout_destination` untuk `claim` = **akun settlement** yang di-allowlist di contract
-  (wrinkle memo SEP-24, spec §4).
+  (wrinkle memo SEP-24).

@@ -1,7 +1,6 @@
 # contracts/ — Soroban Escrow (Rust)
 
-Owner: **Smart Contract** team. Interface = `docs/spesifikasi-teknis-pembagian-kerja.md` §2.1
-(**do not change the signature without team agreement**).
+Owner: **Smart Contract** team. **Do not change function signatures without team agreement.**
 
 ## Prerequisites
 - Rust + `wasm32v1-none` target

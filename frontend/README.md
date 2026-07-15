@@ -1,6 +1,6 @@
 # frontend/ — App Pengirim + Halaman Claim (Next.js)
 
-Owner: tim **Frontend**. Konsumsi REST backend (spec §2.3). Frontend **tidak** menyimpan
+Owner: tim **Frontend**. Konsumsi REST backend. Frontend **tidak** menyimpan
 secret/relayer key.
 
 ## Jalankan
@@ -14,7 +14,7 @@ NEXT_PUBLIC_API_URL=http://localhost:4000 npm run dev   # http://localhost:3000
 - `app/page.tsx` — **App Pengirim** (koridor MY/HK, jumlah, transparansi biaya kurs live, kirim → link).
 - `app/claim/[token]/page.tsx` — **Halaman Claim** penerima (tanpa app, pilih cair, cash-out).
 
-## TODO (spec §5)
+## TODO
 - [ ] **passkey smart wallet** onboarding (Spike 1) + login biometrik non-custodial.
 - [ ] Isi saldo (mock on-ramp).
 - [ ] Alur kirim 4 layar + Share WhatsApp.

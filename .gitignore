@@ -30,4 +30,5 @@ target/
 .superpowers/
 
 # Dokumen internal (tidak ikut repo publik)
+docs/
 
