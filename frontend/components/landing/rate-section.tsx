@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useT } from "@/lib/i18n/locale-context";
+import { useIntlLocale, useT } from "@/lib/i18n/locale-context";
 import styles from "./landing.module.css";
 import { Reveal } from "./reveal";
 import { CheckIcon, ChevronDownIcon } from "./icons";
@@ -61,6 +61,7 @@ function CurrencyPicker({ code, onChange }: { code: string; onChange: (code: str
 
 export function RateSection() {
   const t = useT();
+  const intlLocale = useIntlLocale();
   const [code, setCode] = useState("USD");
   const [amount, setAmount] = useState("500");
   const [liveRate, setLiveRate] = useState<number | null>(null);
@@ -80,7 +81,7 @@ export function RateSection() {
   const currency = CURRENCIES.find((c) => c.code === code) ?? CURRENCIES[0];
   const rate = liveRate ?? currency.fallbackToIdr;
   const parsedAmount = Number.parseFloat(amount.replace(",", ".")) || 0;
-  const result = useMemo(() => new Intl.NumberFormat("id-ID", { maximumFractionDigits: 0 }).format(Math.round(parsedAmount * rate)), [parsedAmount, rate]);
+  const result = useMemo(() => new Intl.NumberFormat(intlLocale, { maximumFractionDigits: 0 }).format(Math.round(parsedAmount * rate)), [parsedAmount, rate, intlLocale]);
 
   return <section id="kurs" className={styles.rateBand}>
     <div className={`${styles.container} ${styles.rateGrid}`}>
@@ -101,7 +102,7 @@ export function RateSection() {
             </span>
             <input className={styles.calcAmount} inputMode="decimal" aria-label={`${t("landing.rateSection.amountAriaLabel")} ${t(`landing.rateSection.currencies.${currency.labelKey}`)}`} value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^0-9.,]/g, ""))} />
           </div>
-          <div className={styles.calcRateRow}><span>{t("landing.rateSection.marketRateLabel")}</span><strong>1 {code} ≈ {new Intl.NumberFormat("id-ID", { maximumFractionDigits: 2 }).format(rate)} IDR</strong></div>
+          <div className={styles.calcRateRow}><span>{t("landing.rateSection.marketRateLabel")}</span><strong>1 {code} ≈ {new Intl.NumberFormat(intlLocale, { maximumFractionDigits: 2 }).format(rate)} IDR</strong></div>
           <div className={styles.calcRow}>
             <span className={styles.calcMeta}>
               <small>{t("landing.rateSection.toLabel")}</small>

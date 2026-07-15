@@ -20,7 +20,7 @@ import {
 import { useSession } from "@/lib/auth-session";
 import { CORRIDORS } from "@/lib/corridors";
 import { ChevronDownIcon, EyeIcon, EyeOffIcon } from "@/components/ui/icons";
-import { useT } from "@/lib/i18n/locale-context";
+import { useIntlLocale, useT } from "@/lib/i18n/locale-context";
 
 const CURRENCY_PREFIX: Record<WalletBalance["currency"], string> = { USD: "$", MYR: "RM", HKD: "HK$", JPY: "¥" };
 
@@ -83,24 +83,25 @@ function CurrencyDropdown({ currency, onChange }: { currency: BalanceCurrency; o
   );
 }
 
-function formatAmount(amount: string): string {
+function formatAmount(amount: string, intlLocale: string): string {
   const value = Number(amount);
   if (Number.isNaN(value)) return amount;
-  return new Intl.NumberFormat("id-ID", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
+  return new Intl.NumberFormat(intlLocale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
 }
 
-function formatIdr(amount: string): string {
+function formatIdr(amount: string, intlLocale: string): string {
   const value = Number(amount);
   if (Number.isNaN(value)) return amount;
-  return new Intl.NumberFormat("id-ID", { maximumFractionDigits: 0 }).format(value);
+  return new Intl.NumberFormat(intlLocale, { maximumFractionDigits: 0 }).format(value);
 }
 
-function todayLabel(): string {
-  return new Date().toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long" });
+function todayLabel(intlLocale: string): string {
+  return new Date().toLocaleDateString(intlLocale, { weekday: "long", day: "numeric", month: "long" });
 }
 
 export default function SenderPage() {
   const t = useT();
+  const intlLocale = useIntlLocale();
   const { sender } = useSession();
   const [balance, setBalance] = useState<WalletBalance | null>(null);
   const [balanceError, setBalanceError] = useState<string | null>(null);
@@ -172,7 +173,7 @@ export default function SenderPage() {
         <div className="mx-auto grid max-w-2xl gap-6 pb-12">
           <section>
             <p className="text-2xl font-extrabold tracking-[-.04em] text-ink">{t("home.greeting")}, {firstName ?? t("home.greeting")}</p>
-            <p className="mt-1 text-sm text-muted">{todayLabel()} · {t("home.todaySubtitle")}</p>
+            <p className="mt-1 text-sm text-muted">{todayLabel(intlLocale)} · {t("home.todaySubtitle")}</p>
           </section>
 
           <Card className="!bg-ink !text-white">
@@ -189,7 +190,7 @@ export default function SenderPage() {
                     className={`text-4xl font-extrabold tabular-nums tracking-[-.06em] ${hideBalance ? "select-none blur-md" : ""}`}
                     aria-hidden={hideBalance || undefined}
                   >
-                    {balance ? `${CURRENCY_PREFIX[balance.currency]} ${formatAmount(balance.amount)}` : "—"}
+                    {balance ? `${CURRENCY_PREFIX[balance.currency]} ${formatAmount(balance.amount, intlLocale)}` : "—"}
                   </p>
                   <div className="flex shrink-0 items-center gap-1">
                     <CurrencyDropdown currency={currency} onChange={switchCurrency} />
@@ -208,7 +209,7 @@ export default function SenderPage() {
                   className={`mt-3 flex items-center gap-2 text-sm text-white/65 ${hideBalance ? "select-none blur-md" : ""}`}
                   aria-hidden={hideBalance || undefined}
                 >
-                  <span className="tabular-nums">{balance ? `${t("home.idrEstimatePrefix")} ${formatIdr(balance.idrEstimate)}` : balanceError ?? t("home.balanceLoadError")}</span>
+                  <span className="tabular-nums">{balance ? `${t("home.idrEstimatePrefix")} ${formatIdr(balance.idrEstimate, intlLocale)}` : balanceError ?? t("home.balanceLoadError")}</span>
                   {balance?.source === "demo" && (
                     <span className="rounded-full bg-white/15 px-2 py-0.5 text-xs font-bold">{t("home.demoBadge")}</span>
                   )}
@@ -260,7 +261,7 @@ export default function SenderPage() {
           {dueSchedule && (
             <Card className="!border-peach !bg-peach-wash">
               <p className="text-sm font-bold text-brand-deep">
-                {t("home.recurringDue")} {dueSchedule.recipientMasked} · {CORRIDORS[dueSchedule.corridor].symbol} {formatAmount(dueSchedule.amountForeign)}
+                {t("home.recurringDue")} {dueSchedule.recipientMasked} · {CORRIDORS[dueSchedule.corridor].symbol} {formatAmount(dueSchedule.amountForeign, intlLocale)}
               </p>
               <div className="mt-4 flex flex-wrap items-center gap-4">
                 <a

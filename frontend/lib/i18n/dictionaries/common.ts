@@ -10,6 +10,13 @@ export const common = {
     brandOnlyAriaLabel: "Sangu",
     navAriaLabel: "Navigasi aplikasi",
     navDesktopAriaLabel: "Navigasi aplikasi (desktop)",
+    status: {
+      pending: "Menunggu dicairkan",
+      claimed: "Sedang diproses",
+      paidOut: "Sudah dicairkan",
+      refunded: "Dikembalikan",
+      expired: "Sudah kedaluwarsa",
+    },
   },
   en: {
     navHome: "Home",
@@ -21,5 +28,12 @@ export const common = {
     brandOnlyAriaLabel: "Sangu",
     navAriaLabel: "App navigation",
     navDesktopAriaLabel: "App navigation (desktop)",
+    status: {
+      pending: "Awaiting payout",
+      claimed: "Processing",
+      paidOut: "Paid out",
+      refunded: "Refunded",
+      expired: "Expired",
+    },
   },
 } as const;

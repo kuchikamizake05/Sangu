@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Field, TextInput } from "@/components/ui/field";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { getClaim, payout, requestOtp, verifyOtp, type ClaimInfo, type PayoutMethod, type PayoutResponse } from "@/lib/api";
-import { useT } from "@/lib/i18n/locale-context";
+import { useIntlLocale, useT } from "@/lib/i18n/locale-context";
 
 type Screen = "summary" | "otp" | "payout" | "result";
 type Choice = { value: PayoutMethod; title: string; detail: string; needsAccount?: boolean };
@@ -23,6 +23,7 @@ function buildChoices(t: (key: string) => string): Choice[] {
 
 export default function ClaimPage({ params }: { params: Promise<{ token: string }> }) {
   const t = useT();
+  const intlLocale = useIntlLocale();
   const choices = buildChoices(t);
   const { token } = use(params);
   const [info, setInfo] = useState<ClaimInfo | null>(null);
@@ -72,7 +73,7 @@ export default function ClaimPage({ params }: { params: Promise<{ token: string 
   const selected = choices.find((item) => item.value === method)!;
 
   return <AppShell mode="claim"><Card className="mx-auto max-w-md !p-6 sm:!p-8"><CardBrand />
-    {screen === "summary" && <section className="mt-7 text-center"><p className="text-lg text-muted">{info.senderName} {t("claim.sentTo")}</p><h1 className="mt-2 text-5xl font-extrabold tracking-[-.07em] sm:text-6xl">Rp {Number(info.amountIdr).toLocaleString("id-ID")}</h1><p className="mx-auto mt-5 max-w-xs text-sm text-muted">{t("claim.claimSafeNote")}</p><Button className="mt-8" fullWidth onClick={beginOtp} disabled={busy}>{busy ? t("claim.sendingCode") : t("claim.claimNow")}</Button></section>}
+    {screen === "summary" && <section className="mt-7 text-center"><p className="text-lg text-muted">{info.senderName} {t("claim.sentTo")}</p><h1 className="mt-2 text-5xl font-extrabold tracking-[-.07em] sm:text-6xl">Rp {Number(info.amountIdr).toLocaleString(intlLocale)}</h1><p className="mx-auto mt-5 max-w-xs text-sm text-muted">{t("claim.claimSafeNote")}</p><Button className="mt-8" fullWidth onClick={beginOtp} disabled={busy}>{busy ? t("claim.sendingCode") : t("claim.claimNow")}</Button></section>}
     {screen === "otp" && <OtpScreen otp={otp} busy={busy} resendSeconds={resendSeconds} onOtpChange={setOtp} onConfirm={confirmOtp} onResend={beginOtp} />}
     {screen === "payout" && <PayoutScreen account={account} busy={busy} method={method} selected={selected} choices={choices} onAccountChange={setAccount} onClaim={claim} onMethodChange={setMethod} />}
     {screen === "result" && result && <ResultScreen amountIdr={info.amountIdr} method={method} result={result} token={token} choices={choices} />}
@@ -99,6 +100,7 @@ function PayoutScreen({ account, busy, method, selected, choices, onAccountChang
 
 function ResultScreen({ amountIdr, method, result, token, choices }: { amountIdr: string; method: PayoutMethod; result: PayoutResponse; token: string; choices: Choice[] }) {
   const t = useT();
+  const intlLocale = useIntlLocale();
   const [copyStatus, setCopyStatus] = useState<"success" | "error" | null>(null);
   const [completed, setCompleted] = useState(false);
   const isCash = Boolean(result.cashCode);
@@ -140,11 +142,11 @@ function ResultScreen({ amountIdr, method, result, token, choices }: { amountIdr
       <p className="mx-auto mt-3 max-w-xs text-sm text-muted">{result.instructions ?? t("claim.processingFallback")}</p>
     </> : completed ? <>
       <h1 className="mt-5 text-3xl font-extrabold tracking-[-.05em]">{t("claim.fundsArrived")}</h1>
-      <p className="mt-3 text-sm font-semibold text-ink">Rp {Number(amountIdr).toLocaleString("id-ID")} {t("claim.sentToMethod")} {methodLabel}</p>
+      <p className="mt-3 text-sm font-semibold text-ink">Rp {Number(amountIdr).toLocaleString(intlLocale)} {t("claim.sentToMethod")} {methodLabel}</p>
       <p className="mx-auto mt-3 max-w-xs text-sm text-muted">{t("claim.payoutCompleteNote")}</p>
     </> : <>
       <h1 className="mt-5 text-3xl font-extrabold tracking-[-.05em]">{t("claim.payoutProcessing")}</h1>
-      <p className="mt-3 text-sm font-semibold text-ink">Rp {Number(amountIdr).toLocaleString("id-ID")} {t("claim.viaMethod")} {methodLabel}</p>
+      <p className="mt-3 text-sm font-semibold text-ink">Rp {Number(amountIdr).toLocaleString(intlLocale)} {t("claim.viaMethod")} {methodLabel}</p>
       <p className="mx-auto mt-3 max-w-xs text-sm text-muted">{result.instructions ?? t("claim.processingFallback")}</p>
     </>}
     {result.simulatedPayout && <p className="mt-4 rounded-xl bg-peach-wash p-3 text-xs text-brand-deep">{t("claim.demoNote")}</p>}

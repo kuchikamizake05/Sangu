@@ -3,14 +3,13 @@
 import { StatusBadge } from "@/components/ui/status-badge";
 import { UserIcon } from "@/components/ui/icons";
 import type { TransferSummary } from "@/lib/api";
-import { useT } from "@/lib/i18n/locale-context";
+import { useIntlLocale, useT } from "@/lib/i18n/locale-context";
 import { formatForeignAmount } from "@/lib/send-flow";
 
-const relativeFormatter = new Intl.RelativeTimeFormat("id", { numeric: "auto" });
-
-function relativeDate(isoDate: string, justNowLabel: string): string {
+function relativeDate(isoDate: string, justNowLabel: string, intlLocale: string): string {
   const date = new Date(isoDate);
   if (Number.isNaN(date.getTime())) return "";
+  const relativeFormatter = new Intl.RelativeTimeFormat(intlLocale, { numeric: "auto" });
   const diffMs = date.getTime() - Date.now();
   const diffMinutes = Math.round(diffMs / 60000);
   const diffHours = Math.round(diffMinutes / 60);
@@ -20,7 +19,7 @@ function relativeDate(isoDate: string, justNowLabel: string): string {
   if (Math.abs(diffMinutes) < 60) return relativeFormatter.format(diffMinutes, "minute");
   if (Math.abs(diffHours) < 24) return relativeFormatter.format(diffHours, "hour");
   if (Math.abs(diffDays) < 30) return relativeFormatter.format(diffDays, "day");
-  return date.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
+  return date.toLocaleDateString(intlLocale, { day: "numeric", month: "short", year: "numeric" });
 }
 
 // Inisial hanya bermakna kalau penerima punya nama; untuk nomor HP tampilkan ikon orang.
@@ -39,6 +38,7 @@ export function TransferList({
   emptyLabel?: string;
 }) {
   const t = useT();
+  const intlLocale = useIntlLocale();
   const items = typeof limit === "number" ? transfers.slice(0, limit) : transfers;
 
   if (items.length === 0) {
@@ -59,7 +59,7 @@ export function TransferList({
             </span>
             <span className="min-w-0">
               <span className="block truncate text-sm font-semibold text-ink">{transfer.recipientMasked}</span>
-              <span className="block text-xs text-muted">{relativeDate(transfer.createdAt, t("send.justNow"))}</span>
+              <span className="block text-xs text-muted">{relativeDate(transfer.createdAt, t("send.justNow"), intlLocale)}</span>
             </span>
           </span>
           <span className="flex shrink-0 flex-col items-end gap-1">

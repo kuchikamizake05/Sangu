@@ -7,26 +7,24 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { TransferList } from "@/components/sender/transfer-list";
 import { getTransfers, type TransferSummary } from "@/lib/api";
-import { useT } from "@/lib/i18n/locale-context";
+import { useIntlLocale, useT } from "@/lib/i18n/locale-context";
 import { filterTransfers, type TransferFilter } from "@/lib/transfer-history-presentation";
-
-const monthFormatter = new Intl.DateTimeFormat("id-ID", { month: "long", year: "numeric" });
 
 function monthKey(isoDate: string): string {
   const date = new Date(isoDate);
   return `${date.getFullYear()}-${String(date.getMonth()).padStart(2, "0")}`;
 }
 
-function monthLabel(isoDate: string): string {
-  const label = monthFormatter.format(new Date(isoDate));
+function monthLabel(isoDate: string, intlLocale: string): string {
+  const label = new Intl.DateTimeFormat(intlLocale, { month: "long", year: "numeric" }).format(new Date(isoDate));
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
-function groupByMonth(transfers: TransferSummary[]): Array<{ key: string; label: string; transfers: TransferSummary[] }> {
+function groupByMonth(transfers: TransferSummary[], intlLocale: string): Array<{ key: string; label: string; transfers: TransferSummary[] }> {
   const groups = new Map<string, { key: string; label: string; transfers: TransferSummary[] }>();
   for (const transfer of transfers) {
     const key = monthKey(transfer.createdAt);
-    if (!groups.has(key)) groups.set(key, { key, label: monthLabel(transfer.createdAt), transfers: [] });
+    if (!groups.has(key)) groups.set(key, { key, label: monthLabel(transfer.createdAt, intlLocale), transfers: [] });
     groups.get(key)!.transfers.push(transfer);
   }
   return [...groups.values()];
@@ -34,6 +32,7 @@ function groupByMonth(transfers: TransferSummary[]): Array<{ key: string; label:
 
 export default function TransfersPage() {
   const t = useT();
+  const intlLocale = useIntlLocale();
   const filterOptions: { value: TransferFilter; label: string }[] = [
     { value: "ALL", label: t("transfers.filterAll") },
     { value: "PENDING", label: t("transfers.filterPending") },
@@ -58,7 +57,7 @@ export default function TransfersPage() {
   }, [reloadToken]);
 
   const filtered = transfers ? filterTransfers(transfers, filter) : [];
-  const groups = useMemo(() => groupByMonth(filtered), [filtered]);
+  const groups = useMemo(() => groupByMonth(filtered, intlLocale), [filtered, intlLocale]);
 
   return <AuthGuard><AppShell><div className="mx-auto max-w-2xl pb-12 lg:max-w-3xl">
     <p className="mt-1 text-xs font-extrabold tracking-[.15em] text-brand-deep">{t("transfers.eyebrow")}</p>

@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { DEFAULT_LOCALE, LOCALE_STORAGE_KEY, type Locale, isLocale } from "./config";
+import { DEFAULT_LOCALE, INTL_LOCALES, LOCALE_STORAGE_KEY, type Locale, isLocale } from "./config";
 import { translate } from "./index";
 
 type LocaleContextValue = {
@@ -71,4 +71,9 @@ export function useLocale(): LocaleContextValue {
 /** Convenience hook returning just the translate function. */
 export function useT(): (key: string) => string {
   return useLocale().t;
+}
+
+/** BCP 47 tag untuk Intl.* (tanggal, angka, waktu relatif) sesuai locale aktif. */
+export function useIntlLocale(): string {
+  return INTL_LOCALES[useLocale().locale];
 }

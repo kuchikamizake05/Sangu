@@ -10,7 +10,7 @@ import { TransactionConfirmation } from "@/components/sender/transaction-confirm
 import { ApiError, markRecurringSent, prepareSend, type Corridor, type PayoutMethod, type PrepareSendResponse } from "@/lib/api";
 import { formatForeignAmount, isE164Phone, appendDigit } from "@/lib/send-flow";
 import { isCorridor } from "@/lib/corridors";
-import { useT } from "@/lib/i18n/locale-context";
+import { useIntlLocale, useT } from "@/lib/i18n/locale-context";
 import { useQuote } from "@/lib/use-quote";
 import type { NumpadKey } from "@/components/sender/numpad";
 
@@ -193,6 +193,7 @@ function ConfirmStep({
   onDone: (claimUrl: string) => void;
 }) {
   const t = useT();
+  const intlLocale = useIntlLocale();
   const insufficientBalance = prepareErrorCode === "INSUFFICIENT_BALANCE";
   return (
     <div className="flex flex-1 flex-col justify-end">
@@ -202,10 +203,10 @@ function ConfirmStep({
         <div className="mt-4 grid gap-2 text-sm">
           <p className="flex justify-between"><span className="text-muted">{t("send.recipientLabel")}</span><span className="font-bold">{phone}</span></p>
           <p className="flex justify-between"><span className="text-muted">{t("send.youSendLabel")}</span><span className="font-bold tabular-nums">{formatForeignAmount(amount, corridor)}</span></p>
-          <p className="flex justify-between"><span className="text-muted">{t("send.familyReceivesLabel")}</span><span className="font-bold tabular-nums">± Rp {Number(prepared?.quote.amountIdr ?? 0).toLocaleString("id-ID")}</span></p>
-          <p className="flex justify-between"><span className="text-muted">{t("send.feeLabel")}</span><span className="font-bold tabular-nums">Rp {Number(prepared?.quote.feeIdrEstimate ?? 0).toLocaleString("id-ID")}</span></p>
+          <p className="flex justify-between"><span className="text-muted">{t("send.familyReceivesLabel")}</span><span className="font-bold tabular-nums">± Rp {Number(prepared?.quote.amountIdr ?? 0).toLocaleString(intlLocale)}</span></p>
+          <p className="flex justify-between"><span className="text-muted">{t("send.feeLabel")}</span><span className="font-bold tabular-nums">Rp {Number(prepared?.quote.feeIdrEstimate ?? 0).toLocaleString(intlLocale)}</span></p>
         </div>
-        {prepared && <p className="mt-2 text-xs text-muted">{t("send.rateAsOf")} {new Date(prepared.quote.rateAsOf).toLocaleString("id-ID")}</p>}
+        {prepared && <p className="mt-2 text-xs text-muted">{t("send.rateAsOf")} {new Date(prepared.quote.rateAsOf).toLocaleString(intlLocale)}</p>}
 
         {prepareBusy && <p className="mt-6 text-sm text-muted">{t("send.preparingTransfer")}</p>}
         {prepareError && (

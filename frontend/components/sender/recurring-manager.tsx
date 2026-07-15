@@ -7,7 +7,7 @@ import { Field, TextInput } from "@/components/ui/field";
 import { createRecurring, deleteRecurring, getRecurring, setRecurringStatus, updateRecurring, type Corridor, type RecurringSchedule } from "@/lib/api";
 import { CORRIDORS, CORRIDOR_ORDER } from "@/lib/corridors";
 import { PauseIcon, PencilIcon, PlayIcon, TrashIcon } from "@/components/ui/icons";
-import { useT } from "@/lib/i18n/locale-context";
+import { useIntlLocale, useT } from "@/lib/i18n/locale-context";
 import { isE164Phone } from "@/lib/send-flow";
 
 type PendingAction = { kind: "pause" | "resume" | "delete"; schedule: RecurringSchedule } | null;
@@ -172,6 +172,7 @@ export function RecurringManager() {
 
 function ScheduleList({ schedules, onEdit, onAction }: { schedules: RecurringSchedule[]; onEdit: (schedule: RecurringSchedule) => void; onAction: (action: Exclude<PendingAction, null>, trigger: HTMLButtonElement) => void }) {
   const t = useT();
+  const intlLocale = useIntlLocale();
   const iconButton = "flex size-9 items-center justify-center rounded-[14px] text-muted transition hover:bg-canvas hover:text-ink";
 
   return <div className="grid gap-4">
@@ -185,7 +186,7 @@ function ScheduleList({ schedules, onEdit, onAction }: { schedules: RecurringSch
       </div>
       {schedule.dueNow && <p className="mt-3 rounded-xl bg-peach-wash px-3 py-2 text-xs font-semibold text-brand-deep">{t("send.dueNow")}</p>}
       <div className="flex items-center justify-between gap-3">
-        <p className="text-xs font-semibold text-muted">{t("send.nextRun")} {new Date(schedule.nextRunAt).toLocaleDateString("id-ID")}</p>
+        <p className="text-xs font-semibold text-muted">{t("send.nextRun")} {new Date(schedule.nextRunAt).toLocaleDateString(intlLocale)}</p>
         <div className="flex gap-1">
           <button type="button" aria-label={t("send.editScheduleAria")} title={t("send.editTitle")} className={iconButton} onClick={() => onEdit({ ...schedule })}><PencilIcon className="size-4.5" /></button>
           <button type="button" aria-label={schedule.status === "ACTIVE" ? t("send.pauseScheduleAria") : t("send.resumeScheduleAria")} title={schedule.status === "ACTIVE" ? t("send.pauseTitle") : t("send.resumeTitle")} className={iconButton} onClick={(event) => onAction({ kind: schedule.status === "ACTIVE" ? "pause" : "resume", schedule }, event.currentTarget)}>{schedule.status === "ACTIVE" ? <PauseIcon className="size-4.5" /> : <PlayIcon className="size-4.5" />}</button>

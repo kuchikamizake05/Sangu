@@ -6,13 +6,14 @@ import { AuthGuard } from "@/components/auth-guard";
 import { Card } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { getTransferDetail, type TransferDetail } from "@/lib/api";
-import { useT } from "@/lib/i18n/locale-context";
+import { useIntlLocale, useT } from "@/lib/i18n/locale-context";
 
 const stages = ["CREATED", "DEPOSITED", "CLAIMED", "PAID_OUT"] as const;
 const anchorTerminalStatuses = new Set(["completed", "refunded", "expired", "error", "no_market"]);
 
 export default function TransferDetailPage({ params }: { params: Promise<{ transferId: string }> }) {
   const t = useT();
+  const intlLocale = useIntlLocale();
   const labels = {
     CREATED: t("transfers.stageCreated"),
     DEPOSITED: t("transfers.stageDeposited"),
@@ -46,7 +47,7 @@ export default function TransferDetailPage({ params }: { params: Promise<{ trans
     <Card className="mt-3">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="tabular-nums text-4xl font-extrabold tracking-[-.06em]">Rp {Number(transfer.amount).toLocaleString("id-ID")}</h1>
+          <h1 className="tabular-nums text-4xl font-extrabold tracking-[-.06em]">Rp {Number(transfer.amount).toLocaleString(intlLocale)}</h1>
           <p className="mt-2 text-sm text-muted">{t("transfers.toRecipient")} {transfer.recipientMasked}</p>
         </div>
         <StatusBadge status={transfer.status} />
@@ -63,7 +64,7 @@ export default function TransferDetailPage({ params }: { params: Promise<{ trans
           <span aria-hidden className={`relative z-10 mt-1.5 size-3 shrink-0 rounded-full ${state === "complete" ? "bg-success" : state === "current" ? "bg-brand" : "bg-line"}`} />
           <div>
             <strong className="block">{labels[event.type as keyof typeof labels]}</strong>
-            <span className="text-sm text-muted">{event.occurredAt ? new Date(event.occurredAt).toLocaleString("id-ID") : state === "current" ? t("transfers.currentStep") : t("transfers.upcomingStep")}</span>
+            <span className="text-sm text-muted">{event.occurredAt ? new Date(event.occurredAt).toLocaleString(intlLocale) : state === "current" ? t("transfers.currentStep") : t("transfers.upcomingStep")}</span>
           </div>
         </li>;
       })}</ol>

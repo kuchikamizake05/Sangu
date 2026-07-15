@@ -1,6 +1,8 @@
 import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { TransferSummary } from "@/lib/api";
+import { LocaleProvider } from "@/lib/i18n/locale-context";
+import { LOCALE_STORAGE_KEY } from "@/lib/i18n/config";
 import { TransferList } from "./transfer-list";
 
 const NOW = new Date("2026-07-14T12:00:00.000Z").getTime();
@@ -35,5 +37,24 @@ describe("TransferList", () => {
     expect(screen.getByText(/2 jam yang lalu/i)).toBeInTheDocument();
     expect(screen.getByText(/3 hari yang lalu/i)).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: /RM\s*100/i })).toHaveLength(6);
+  });
+
+  // Regresi: sebelumnya tanggal relatif & badge status hardcoded bahasa Indonesia,
+  // sehingga daftar Aktivitas tetap berbahasa Indonesia di mode English.
+  it("renders dates and status badges in English when the locale is English", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+    window.localStorage.setItem(LOCALE_STORAGE_KEY, "en");
+    try {
+      render(<LocaleProvider><TransferList transfers={[
+        transfer("hours", new Date(NOW - 2 * 3_600_000).toISOString()),
+      ]} /></LocaleProvider>);
+      // Preferensi locale dibaca dalam useEffect setelah mount.
+      await vi.waitFor(() => expect(screen.getByText(/2 hours ago/i)).toBeInTheDocument());
+      expect(screen.getByText("Awaiting payout")).toBeInTheDocument();
+      expect(screen.queryByText(/jam yang lalu/i)).not.toBeInTheDocument();
+    } finally {
+      window.localStorage.removeItem(LOCALE_STORAGE_KEY);
+    }
   });
 });

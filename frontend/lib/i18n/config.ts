@@ -17,6 +17,12 @@ export const LOCALE_SHORT: Record<Locale, string> = {
   en: "EN",
 };
 
+/** BCP 47 tag per locale untuk Intl.* (format tanggal, angka, waktu relatif). */
+export const INTL_LOCALES: Record<Locale, string> = {
+  id: "id-ID",
+  en: "en-US",
+};
+
 export function isLocale(value: unknown): value is Locale {
   return typeof value === "string" && (LOCALES as readonly string[]).includes(value);
 }

@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button";
 import type { Corridor, Quote } from "@/lib/api";
 import { CORRIDORS } from "@/lib/corridors";
-import { useT } from "@/lib/i18n/locale-context";
+import { useIntlLocale, useT } from "@/lib/i18n/locale-context";
 import { Numpad, type NumpadKey } from "./numpad";
 
 function amountFontSize(displayValue: string): string {
@@ -33,6 +33,7 @@ export function AmountScreen({
   canContinue: boolean;
 }) {
   const t = useT();
+  const intlLocale = useIntlLocale();
   const symbol = CORRIDORS[corridor].symbol;
   const hasAmount = amount.length > 0;
   const displayValue = hasAmount ? amount : "0";
@@ -49,7 +50,7 @@ export function AmountScreen({
           {!loading && error && <span className="font-semibold text-danger">{error}</span>}
           {!loading && !error && quote && (
             <span className="text-muted">
-              ≈ Rp {Number(quote.amountIdr).toLocaleString("id-ID")} {t("send.quoteSummary")} Rp {Number(quote.feeIdrEstimate).toLocaleString("id-ID")}
+              ≈ Rp {Number(quote.amountIdr).toLocaleString(intlLocale)} {t("send.quoteSummary")} Rp {Number(quote.feeIdrEstimate).toLocaleString(intlLocale)}
             </span>
           )}
         </div>
